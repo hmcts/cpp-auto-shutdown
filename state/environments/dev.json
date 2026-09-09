@@ -3,120 +3,80 @@
   "stacks": {
     "DEVCCM01": {
       "stack": "DEVCCM01",
-      "stackComponents": ["AKS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "started",
       "observedAt": "2026-09-09T09:12:04Z",
       "sourcePipeline": 402,
       "sourceRunId": 825901,
       "components": {
-        "paas": null,
-        "iaas": null,
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM02": {
       "stack": "DEVCCM02",
-      "stackComponents": ["AKS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "started",
       "observedAt": "2026-09-09T09:12:04Z",
       "sourcePipeline": 402,
       "sourceRunId": 825901,
       "components": {
-        "paas": null,
-        "iaas": null,
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM03": {
       "stack": "DEVCCM03",
-      "stackComponents": ["AKS", "IaaS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "started",
       "observedAt": "2026-09-09T08:30:51Z",
       "sourcePipeline": 402,
       "sourceRunId": 825870,
       "components": {
-        "paas": null,
-        "iaas": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "3/3 VMs running; services ready"
-        },
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "3/3 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM04": {
       "stack": "DEVCCM04",
-      "stackComponents": ["AKS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "started",
       "observedAt": "2026-09-09T07:24:38Z",
-      "sourcePipeline": 375,
+      "sourcePipeline": 402,
       "sourceRunId": 825812,
       "components": {
-        "paas": null,
-        "iaas": null,
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "Manual scale to 3 replicas"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM05": {
       "stack": "DEVCCM05",
-      "stackComponents": ["AKS", "PaaS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "partial",
       "observedAt": "2026-09-09T08:51:17Z",
       "sourcePipeline": 402,
       "sourceRunId": 825888,
       "components": {
-        "paas": {
-          "requested": true,
-          "status": "stopped",
-          "verified": true,
-          "reason": "PostgreSQL flexible server reports stopped"
-        },
-        "iaas": null,
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "stopped", "verified": true, "reason": "PostgreSQL flexible server reports stopped" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM06": {
       "stack": "DEVCCM06",
-      "stackComponents": ["AKS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "started",
       "observedAt": "2026-09-09T09:04:22Z",
       "sourcePipeline": 402,
       "sourceRunId": 825901,
       "components": {
-        "paas": null,
-        "iaas": null,
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM07": {
@@ -127,42 +87,22 @@
       "sourcePipeline": 402,
       "sourceRunId": 825901,
       "components": {
-        "paas": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "Server reports ready"
-        },
-        "iaas": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "2/2 VMs running"
-        },
-        "aks": {
-          "requested": true,
-          "status": "started",
-          "verified": true,
-          "reason": "All requested AKS workloads ready"
-        }
+        "paas": { "requested": true, "status": "started", "verified": true, "reason": "PostgreSQL flexible server reports ready" },
+        "iaas": { "requested": true, "status": "started", "verified": true, "reason": "2/2 VMs running; services ready" },
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
       }
     },
     "DEVCCM08": {
       "stack": "DEVCCM08",
-      "stackComponents": ["AKS"],
+      "stackComponents": ["AKS", "IaaS", "PaaS"],
       "aggregateStatus": "stopped",
-      "observedAt": "2026-09-08T19:02:11Z",
+      "observedAt": "2026-09-08T19:05:47Z",
       "sourcePipeline": 404,
       "sourceRunId": 825603,
       "components": {
-        "paas": null,
-        "iaas": null,
-        "aks": {
-          "requested": false,
-          "status": "stopped",
-          "verified": true,
-          "reason": "Zero desired/current/ready replicas"
-        }
+        "paas": { "requested": false, "status": "stopped", "verified": true, "reason": "PostgreSQL flexible server reports stopped" },
+        "iaas": { "requested": false, "status": "stopped", "verified": true, "reason": "2/2 VMs deallocated" },
+        "aks": { "requested": false, "status": "stopped", "verified": true, "reason": "Zero desired/current/ready replicas" }
       }
     }
   }

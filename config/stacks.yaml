@@ -30,7 +30,7 @@ exception_windows:
 stacks:
   - id: DEVCCM01
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Pankaj Verma
     used_for: Release testing
     urls:
@@ -39,7 +39,7 @@ stacks:
 
   - id: DEVCCM02
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Pankaj Verma
     used_for: Release testing
     urls:
@@ -48,7 +48,7 @@ stacks:
 
   - id: DEVCCM03
     environment: dev
-    components: [AKS, IaaS]
+    components: [AKS, IaaS, PaaS]
     owner: Ashish Sidhu
     used_for: Prosecuting integration
     urls:
@@ -59,7 +59,7 @@ stacks:
 
   - id: DEVCCM04
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Vipin Murali
     used_for: Shared dev
     urls:
@@ -69,7 +69,7 @@ stacks:
 
   - id: DEVCCM05
     environment: dev
-    components: [AKS, PaaS]
+    components: [AKS, IaaS, PaaS]
     owner: Laxman Kerai
     used_for: No.10 Case Readiness Dashboard
     urls:
@@ -79,7 +79,7 @@ stacks:
 
   - id: DEVCCM06
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Gerard Fyson
     used_for: Crown Court Scheduler UAT, S&L team
     urls:
@@ -97,7 +97,7 @@ stacks:
 
   - id: DEVCCM08
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Varun Vijayagopal
     used_for: Artemis upgrade testing
     urls:
@@ -106,7 +106,7 @@ stacks:
 
   - id: DEVCCM09
     environment: dev
-    components: [AKS]
+    components: [AKS, IaaS, PaaS]
     owner: Romina Ahmad
     used_for: Case Admin B
     urls:
@@ -125,7 +125,7 @@ stacks:
 
   - id: STECCM12
     environment: ste
-    components: [AKS, PaaS]
+    components: [AKS]
     owner: Gerard Fyson
     used_for: Pre-release verification
     urls: []
@@ -141,7 +141,7 @@ stacks:
 
   - id: STECCM14
     environment: ste
-    components: [AKS, IaaS]
+    components: [AKS]
     owner: Vipin Murali
     used_for: Portal integration
     urls: []
@@ -150,6 +150,16 @@ stacks:
 # Every deviation from the baseline lives here, always dated. Automation reads
 # only applied configuration, so `applied: false` has no effect on the
 # scheduler — the dashboard surfaces that explicitly so a DM is not misled.
+#
+# HOUSEKEEPING NEEDED — this block grows without bound.
+# CNP prunes the equivalent file daily: .github/workflows/housekeeping_aks_issuejson.yaml
+# runs scripts/housekeeping.py, which drops every entry whose end date has passed
+# and commits the result. Do the same here, with two differences:
+#   - keep a grace period of about 30 days rather than deleting on expiry, so the
+#     board's "Finished" group and the calendar still show recent history;
+#   - edit with `yq` rather than a YAML load/dump, which would strip these comments.
+# Nothing is lost by pruning: Git history remains the full audit trail.
+# To be built alongside the issue-form write path.
 exceptions:
   - request: 105
     reference: CPP-4703
