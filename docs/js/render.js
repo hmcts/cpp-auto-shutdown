@@ -99,7 +99,7 @@ export function renderBoard(rows, today) {
         <span class="pill ${esc(row.observed)}">${esc(stateLabel(row.observed))}</span>
         ${componentLine(record)}
         ${row.drift ? `<span class="flag">Not what the schedule says &mdash; ask the platform team</span>` : ""}
-        ${!row.drift && row.stale && record ? `<span class="flag">Last checked ${esc(formatAge(row.age))} &mdash; a check may have failed</span>` : ""}
+        ${!row.drift && row.stale && record ? `<span class="flag">Last checked ${esc(formatAge(row.age))} &mdash; expected updates have not arrived</span>` : ""}
         ${!record ? `<span class="flag">Never checked</span>` : ""}
       </td>
       <td>${shutdownCell(schedule, row.observed)}</td>

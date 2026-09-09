@@ -141,12 +141,49 @@ active exception. Cache the response; it changes yearly.
 Beneath the pill, for any stack with more than one component, show the per-component line:
 `AKS up · PaaS down`. Single-component stacks show nothing (it would only repeat the pill).
 
-**Staleness**: if `now - observedAt > STALE_HOURS` (default 4, DECISION NEEDED) flag
-"Last checked Xh ago — a check may have failed". The displayed value is still real, just old.
+**Staleness** — measured in scheduled transitions, NOT in hours.
 
-**Drift**: observed status != what config expects right now, on a fresh non-partial record.
-Show as a quiet per-row flag "Not what the schedule says — ask the platform team".
+`observedAt` only advances when something *acts* on a stack: 416 triggers only the stacks
+requiring action, and 379 invokes 375 only on a mismatch. Under healthy operation a stack is
+therefore observed about twice a day, at startup and at shutdown. That rules out a flat
+threshold: anything short enough to be useful flags every stack overnight, and the gaps that
+are legitimately long are very long —
+
+| Gap with nothing wrong                        | Duration |
+|-----------------------------------------------|----------|
+| Weekday shutdown 19:00 -> next startup 06:00   | 11h      |
+| Friday shutdown -> Monday startup              | 59h      |
+| Friday -> Tuesday, bank holiday Monday         | 83h      |
+
+The rule:
+
+> A record is stale once **two consecutive scheduled transitions** have passed with no new
+> observation.
+
+One missed transition is deliberately tolerated. The pipeline already fails, alerts and
+retries on the next run, so flagging at the first miss duplicates an alert the platform team
+already has and flaps on failures that self-heal. Two misses means it has not self-healed,
+which is the thing only this board can say.
+
+Days on which a stack never runs contribute no transitions, so weekends and bank holidays are
+skipped without special-casing.
+
+**Backstop**: stacks that run 24h never transition, so nothing can be counted for them. They
+fall back to `MAX_OBSERVATION_AGE_HOURS` (72), chosen to clear a bank holiday weekend. The
+same fallback covers a stack too newly scheduled to have two transitions behind it.
+
+Flag text: "Last checked Xh ago — expected updates have not arrived". The value shown is
+still real, just no longer being maintained.
+
+**Drift**: observed status != what config expects right now, on a non-stale, non-partial
+record. Shown as a quiet per-row flag, "Not what the schedule says — ask the platform team".
 NOT a summary tile and NOT a filter in v1.
+
+Drift and staleness are complementary, and the one-transition tolerance is what makes them
+so. A startup that fails at 06:00 leaves the record one transition behind — still fresh — so
+the row reports drift immediately (config expects `started`, the record says `stopped`).
+Staleness only follows later if nothing recovers. A shorter staleness window would suppress
+drift in exactly the case that matters most.
 
 ## 7. Exception lifecycle
 

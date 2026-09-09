@@ -60,6 +60,14 @@ export function formatAge(hours) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
+/* Compare two London wall-clock points, {date, minutes}. Comparing in wall clock
+ * rather than UTC keeps schedule times and observations on the same footing and
+ * avoids converting a local time back to an instant across a DST change. */
+export function compareClock(a, b) {
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  return a.minutes - b.minutes;
+}
+
 export function addDays(isoDate, n) {
   const d = new Date(`${isoDate}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);

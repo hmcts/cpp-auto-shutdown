@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildRow, componentReadings, exceptionStatus, stateLabel, STALE_HOURS }
-  from "../docs/js/model.js";
+import { buildRow, componentReadings, exceptionStatus, stateLabel, isStale,
+         MAX_OBSERVATION_AGE_HOURS } from "../docs/js/model.js";
 import { formatDate, formatAge, toMinutes } from "../docs/js/time.js";
 import { esc, safeUrl } from "../docs/js/dom.js";
 
@@ -38,12 +38,61 @@ test("a fresh record is not stale and needs no attention", () => {
   assert.equal(row.needsAttention, false);
 });
 
-test("a record older than the threshold is stale", () => {
-  const old = record({ observedAt: "2026-09-08T19:00:00Z" });   // 15h before NOW
-  const row = buildRow(stack(), old, ctx());
-  assert.ok(row.age > STALE_HOURS);
+/* Staleness is measured in scheduled transitions, not hours. A baseline stack
+ * transitions at 06:00 and 19:00, so at 10:00 on the 9th the two most recent
+ * due transitions are 06:00 on the 9th and 19:00 on the 8th. */
+
+test("an observation after the most recent transition is fresh", () => {
+  // 07:24 on the 9th, i.e. after that morning's 06:00 startup.
+  const row = buildRow(stack(), record({ observedAt: "2026-09-09T07:24:00Z" }), ctx());
+  assert.equal(row.stale, false);
+});
+
+test("ONE missed transition is tolerated — the pipeline alerts and retries", () => {
+  // Last seen at the 8th's 19:00 shutdown; only the 9th's 06:00 start was missed.
+  const row = buildRow(stack(), record({ observedAt: "2026-09-08T19:05:00Z" }), ctx());
+  assert.equal(row.stale, false);
+  assert.ok(row.age > 14, "record is over 14h old and still not stale — by design");
+});
+
+test("TWO missed transitions is stale", () => {
+  // Last seen before the 8th's 19:00 shutdown, so that and the 9th's start were missed.
+  const row = buildRow(stack(), record({ observedAt: "2026-09-08T12:00:00Z" }), ctx());
   assert.equal(row.stale, true);
   assert.equal(row.needsAttention, true);
+});
+
+test("a weekend produces no transitions, so a Friday record survives it", () => {
+  // Monday 14 Sep 10:00. A weekday-only stack last observed at Friday's 19:00
+  // shutdown has missed only Monday's 06:00 start — the weekend is not counted.
+  const monday = ctx({ date: "2026-09-14", now: new Date("2026-09-14T10:00:00Z") });
+  const friday = record({ observedAt: "2026-09-11T19:05:00Z" });   // ~63h earlier
+  const row = buildRow(stack(), friday, monday);
+  assert.ok(row.age > MAX_OBSERVATION_AGE_HOURS - 12, "record is nearly three days old");
+  assert.equal(row.stale, false, "nothing was due over the weekend, so nothing was missed");
+});
+
+test("a bank holiday is skipped too", () => {
+  // Tue 1 Sep, with Mon 31 Aug a bank holiday. Last seen Friday 28th's shutdown:
+  // only Tuesday's start was missed.
+  const tuesday = ctx({
+    date: "2026-09-01", now: new Date("2026-09-01T10:00:00Z"),
+    bankHolidays: { "2026-08-31": "Summer bank holiday" }
+  });
+  const row = buildRow(stack(), record({ observedAt: "2026-08-28T19:05:00Z" }), tuesday);
+  assert.equal(row.stale, false);
+});
+
+test("24h stacks have no transitions and fall back to the age cap", () => {
+  const allDay = stack({ stop: "24h" });
+  const fresh = record({ observedAt: "2026-09-08T10:00:00Z" });        // 24h
+  const ancient = record({ observedAt: "2026-09-05T10:00:00Z" });      // 96h
+  assert.equal(buildRow(allDay, fresh, ctx()).stale, false);
+  assert.equal(buildRow(allDay, ancient, ctx()).stale, true);
+});
+
+test("isStale reports true when there is no record at all", () => {
+  assert.equal(isStale(stack(), null, null, ctx()), true);
 });
 
 test("a missing record is 'unknown', never assumed stopped", () => {
@@ -70,10 +119,25 @@ test("no drift when observation agrees with the schedule", () => {
 });
 
 test("a stale record never counts as drift — it may simply be out of date", () => {
-  const old = record({ observedAt: "2026-09-08T19:00:00Z" });
+  const old = record({ observedAt: "2026-09-08T12:00:00Z" });   // two transitions missed
   const row = buildRow(stack(), old, ctx({ minutes: toMinutes("22:00") }));
   assert.equal(row.stale, true);
   assert.equal(row.drift, false);
+});
+
+/* The case the whole rule exists to protect: a startup that failed this morning.
+ * One transition missed, so the record stays fresh, so drift fires immediately
+ * rather than being masked. Under the old flat threshold this was suppressed. */
+test("a failed startup shows as drift straight away", () => {
+  const overnight = record({
+    observedAt: "2026-09-08T19:05:00Z",     // last night's verified shutdown
+    aggregateStatus: "stopped"
+  });
+  const row = buildRow(stack(), overnight, ctx());   // 10:00, config expects started
+  assert.equal(row.schedule.status, "started");
+  assert.equal(row.observed, "stopped");
+  assert.equal(row.stale, false, "one missed transition is tolerated");
+  assert.equal(row.drift, true, "so the failure surfaces as drift, not silence");
 });
 
 test("a partial reading is never drift — it is neither started nor stopped", () => {

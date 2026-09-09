@@ -8,15 +8,52 @@
  *     only detectable as age, never as an explicit "unknown" value.
  *   - a null component means "not part of this stack", not "stopped". */
 
-import { ageInHours } from "./time.js";
-import { resolveSchedule, exceptionFor, nextExceptionFor } from "./schedule.js";
+import { ageInHours, londonClock, compareClock } from "./time.js";
+import { resolveSchedule, exceptionFor, nextExceptionFor, dueTransitions } from "./schedule.js";
 
-/* Hours after which an observation stops being trustworthy. Still a guess — it should
- * follow the actual pipeline run cadence (379 every 30 min, 416 hourly). */
-export const STALE_HOURS = 4;
+/* Staleness is measured against the schedule, not a fixed duration.
+ *
+ * `observedAt` only advances when something ACTS on a stack: 416 triggers only
+ * the stacks needing action, and 379 invokes 375 only on a mismatch. Under
+ * healthy operation a stack is therefore observed about twice a day — once at
+ * startup, once at shutdown — so any flat threshold short enough to be useful
+ * would flag every stack overnight, and one long enough to survive a bank
+ * holiday weekend (83h between a Friday shutdown and a Tuesday startup) would
+ * catch nothing.
+ *
+ * So: a record is stale once TWO consecutive scheduled transitions have passed
+ * without a new observation. One missed transition is tolerated because the
+ * pipeline already alerts and the next run retries — flagging there would only
+ * duplicate an alert the platform team has, and would flap on failures that
+ * self-heal. Two missed transitions means it has not self-healed, which is the
+ * thing only this board can say. */
+
+/* Backstop for stacks that never transition (the 24h ones), which no
+ * transition-based rule can judge. 72h clears a bank holiday weekend. */
+export const MAX_OBSERVATION_AGE_HOURS = 72;
 
 export const COMPONENTS = ["aks", "iaas", "paas"];
 export const COMPONENT_LABELS = { aks: "AKS", iaas: "IaaS", paas: "PaaS" };
+
+/**
+ * Has this record stopped being maintained?
+ *
+ * Stale once two consecutive due transitions have passed with no new
+ * observation. Falls back to an age cap where the schedule provides nothing to
+ * measure against: 24h stacks, and stacks too newly scheduled to have two
+ * transitions behind them yet.
+ */
+export function isStale(stack, record, age, context) {
+  if (!record || !record.observedAt) return true;
+
+  const transitions = dueTransitions(stack, context, 2);
+  if (transitions.length < 2) {
+    return age !== null && age > MAX_OBSERVATION_AGE_HOURS;
+  }
+
+  const observed = londonClock(new Date(record.observedAt));
+  return compareClock(observed, transitions[1]) < 0;
+}
 
 /**
  * Combine one stack's config and state into everything the row needs.
@@ -28,10 +65,14 @@ export function buildRow(stack, record, context) {
   const age = ageInHours(record, context.now);
 
   const observed = record ? record.aggregateStatus : "unknown";
-  const stale = record ? (age === null || age > STALE_HOURS) : true;
+  const stale = isStale(stack, record, age, context);
 
-  // Only compare when we have a fresh, unambiguous reading. A partial result
-  // is neither started nor stopped, so drift cannot be judged from it.
+  // Only compare when we have a reading we trust. A partial result is neither
+  // started nor stopped, so drift cannot be judged from it.
+  //
+  // A single missed transition leaves the record fresh by design, so the case
+  // that matters most — a startup that failed this morning — still surfaces
+  // here as drift, immediately, rather than waiting on staleness.
   const drift = Boolean(record) && !stale
     && observed !== "partial" && observed !== "unknown"
     && observed !== schedule.status;

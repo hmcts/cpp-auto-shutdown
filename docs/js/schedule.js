@@ -10,7 +10,7 @@
  *   3. weekend             -> no startup unless a weekend preset is set
  *   4. baseline 06:00-19:00, optionally with a later shutdown */
 
-import { toMinutes, isWeekend } from "./time.js";
+import { toMinutes, isWeekend, addDays, compareClock } from "./time.js";
 
 export const BASELINE_START = "06:00";
 export const BASELINE_STOP = "19:00";
@@ -67,4 +67,35 @@ export function resolveSchedule(stack, { date, minutes, exceptions = [], bankHol
     kind: special ? "weekend"
         : (stack.stop && stack.stop !== BASELINE_STOP ? "extended" : "baseline")
   };
+}
+
+/**
+ * Scheduled start/stop times that have already fallen due, most recent first,
+ * as London wall-clock points { date, minutes }.
+ *
+ * Each one is a moment an action should have run and therefore produced a
+ * verified observation. Days on which the stack never runs — weekends and bank
+ * holidays it has not opted into — contribute nothing, which is what stops a
+ * quiet Sunday from looking like a failure. Stacks that run 24 hours have no
+ * transitions at all and are judged by the age backstop instead.
+ */
+export function dueTransitions(stack, context, limit = 2, lookbackDays = 14) {
+  const now = { date: context.date, minutes: context.minutes };
+  const found = [];
+  let date = context.date;
+
+  for (let day = 0; day < lookbackDays && found.length < limit; day++) {
+    const resolved = resolveSchedule(stack, { ...context, date, minutes: 0 });
+
+    // A day only has transitions if the stack both starts and stops on it.
+    if (resolved.start && resolved.stop) {
+      for (const time of [resolved.stop, resolved.start]) {   // newest first
+        const point = { date, minutes: toMinutes(time) };
+        if (compareClock(point, now) <= 0) found.push(point);
+        if (found.length >= limit) break;
+      }
+    }
+    date = addDays(date, -1);
+  }
+  return found;
 }
