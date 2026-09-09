@@ -11,7 +11,8 @@
 import { ageInHours } from "./time.js";
 import { resolveSchedule, exceptionFor, nextExceptionFor } from "./schedule.js";
 
-/** Hours after which an observation stops being trustworthy. See DESIGN.md §10. */
+/* Hours after which an observation stops being trustworthy. Still a guess — it should
+ * follow the actual pipeline run cadence (379 every 30 min, 416 hourly). */
 export const STALE_HOURS = 4;
 
 export const COMPONENTS = ["aks", "iaas", "paas"];

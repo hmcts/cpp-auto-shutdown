@@ -20,11 +20,6 @@ In this repo:
 Run locally with `npm run serve` and open http://localhost:8000.
 Add `?ref=BRANCH` to read data from a branch before it is merged.
 
-Interactive versions of the same design:
-- v1, as specified here: https://claude.ai/code/artifact/b117d1e8-8dab-4afc-9d93-457a21c6fb62
-- fuller variant showing the deferred v2 ideas:
-  https://claude.ai/code/artifact/e5d49147-8aca-4b2f-b995-d43f5be20367
-
 ## 1. Purpose and audience
 
 Delivery Managers, not engineers. It answers four questions: is my stack up, when does it
@@ -44,7 +39,6 @@ server-side merge, no generated `data.json`, and no rebuild when state changes:
 
 - `raw.githubusercontent.com` sends `access-control-allow-origin: *` and `cache-control: max-age=300`.
 - Poll every 60s AND on `visibilitychange` (a DM may leave the tab open all day).
-- Do NOT poll `api.github.com` — 60 req/hour per IP, unauthenticated, and users share egress IPs.
 - Pages redeploy is only needed when the HTML/JS itself changes.
 - Freshness ceiling is ~5 min (CDN), but the state file itself only changes every 30–60 min
   (379 every 30 min, 416 hourly), so this is as fresh as the data ever gets.
@@ -94,7 +88,8 @@ Invariants the UI must respect:
 Join edge cases:
 - In config, no state record  -> "Never checked".
 - In state, not in config     -> orphan; show with a "no longer in configuration" marker
-                                 rather than dropping silently (see §9, tombstones).
+                                 rather than dropping silently. Whether pipeline 167
+                                 deletes the record or writes a tombstone is still open.
 - `stackComponents` disagreeing with config's declared components -> surface as inconsistency.
 
 ## 4. Views
@@ -151,12 +146,11 @@ Beneath the pill, for any stack with more than one component, show the per-compo
 
 **Drift**: observed status != what config expects right now, on a fresh non-partial record.
 Show as a quiet per-row flag "Not what the schedule says — ask the platform team".
-NOT a summary tile and NOT a filter in v1 (see §8).
+NOT a summary tile and NOT a filter in v1.
 
 ## 7. Exception lifecycle
 
-Four states, driven by whether the change has been approved and applied. Never use Git
-vocabulary (merged, PR, main) in the UI.
+Four states, driven by whether the change has been approved and applied.
 
 | State                   | Condition                          | Consequence shown                                               |
 |-------------------------|------------------------------------|-----------------------------------------------------------------|
@@ -183,38 +177,7 @@ the three views cannot drift apart.
 - `sourcePipeline` and `sourceRunId`, linked to the ADO run
 - URLs and notes from config
 
-## 9. Deferred to v2
-
-- Drift as a summary tile and filter, once someone owns acting on it
-- Observation age as its own column
-- Cost, charts, CSV export (CNP's Insights equivalent)
-- SIT and NFT environments
-
-## 10. Open decisions
-
-Blocking:
-- Stale threshold: `STALE_HOURS` in `docs/js/model.js` is 4, which is a guess; it should
-  follow the actual run cadence.
-- `aggregateStatus` rules for mixed outcomes — flagged NEEDS DECISION in the state design;
-  this decides when a stack reads "Partly up".
-- Tombstone vs delete after pipeline 167 cleanup — decides orphan handling.
-
-Non-blocking:
-- Top-level shape of the state file (array vs keyed by stack). Keyed is easier for the writer.
-- Whether a newly added stack should read differently from one that has genuinely never
-  been checked (needs a `firstSeen` or equivalent).
-
-Security note: public Pages exposes stack names, owners and internal URLs. Those URLs are
-VPN-only, so this discloses naming conventions rather than access, and CNP's public board
-already exposes GitHub usernames, team names, justifications and VPN-only Jira links. Worth a
-nod from whoever owns this, not treated as a blocker.
-
-Documentation conflict to resolve: the requirements say the state file holds Owner and
-Used-for; the observed-state design puts ownership in `config/stacks.yaml`. This spec follows
-the design doc — owner and usage are declared, not observed, and the observed-state record
-shape has no owner field.
-
-## 11. Acceptance criteria
+## 9. Acceptance criteria
 
 - [ ] Three tabs: Environments, Calendar, Exceptions
 - [ ] Environments shows the six columns above, sourced as specified
