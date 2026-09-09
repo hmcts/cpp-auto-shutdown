@@ -106,10 +106,10 @@ Environment switcher: DEV, STE (SIT and NFT present but disabled, "reserved for 
 
 | # | Column        | Source                                                        |
 |---|---------------|---------------------------------------------------------------|
-| 1 | Stack         | config — id + component chips (AKS / IaaS / PaaS)              |
+| 1 | Stack         | config — id + component chips, lit by state                    |
 | 2 | Owner (DM)    | config                                                         |
 | 3 | Used for      | config                                                         |
-| 4 | State now     | **state** — aggregateStatus + per-component line + age flags   |
+| 4 | State now     | **state** — aggregateStatus + age flags                        |
 | 5 | Shuts down    | baseline, or an applied exception covering today               |
 | 6 | Exception req | config — lifecycle state + date window + request link          |
 
@@ -153,8 +153,14 @@ it changes yearly.
 - `partial` -> "Partly up" (warning colour) — components disagree
 - no record -> "Not known" + flag "Never checked"
 
-Beneath the pill, for any stack with more than one component, show the per-component line:
-`AKS up · PaaS down`. Single-component stacks show nothing (it would only repeat the pill).
+**Component chips** sit in column 1 and carry the per-component reading. Only the components
+a stack actually has are rendered — an STE stack shows `AKS` alone, never a greyed-out IaaS
+and PaaS it will never have — and each chip is lit when that component is up, dim when it is
+down or unverified.
+
+So a `partial` stack reads "Partly up" with `AKS` and `IaaS` lit and `PaaS` dim, and the
+missing piece is visible without expanding the row. The detail panel still gives each
+component's status, verified flag and `reason` string.
 
 **Staleness** — measured in scheduled transitions, NOT in hours.
 
@@ -241,7 +247,7 @@ the three views cannot drift apart.
 - [ ] Three tabs: Environments, Calendar, Exceptions
 - [ ] Environments shows the six columns above, sourced as specified
 - [ ] State is read from the state file and never inferred from the clock
-- [ ] `partial` renders as "Partly up" with the per-component line
+- [ ] `partial` renders as "Partly up", with the down component's chip visibly dim
 - [ ] Stale and never-checked render differently and are not conflated
 - [ ] Exception states use the outcome wording in §7, with consequence text on blocked states
 - [ ] Baseline, delays, weekend presets and bank-holiday suppression all honoured
