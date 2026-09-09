@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRIME Environment Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+html{color-scheme:light dark}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+:root{
+  --ground:#EDF0F5; --surface:#FFFFFF; --surface-2:#F6F8FB;
+  --ink:#141B26; --ink-2:#4B5665; --ink-3:#79838F;
+  --line:#DBE1EA; --line-2:#EAEEF3;
+  --accent:#2F4A8A; --accent-soft:#E6EDF9;
+  --up:#0F6B54; --up-soft:#DFF0EA;
+  --down:#59636F; --down-soft:#E6EAEF;
+  --warn:#9E2B47; --warn-soft:#FAE6EB;
+  --pend:#82631A; --pend-soft:#F8EFD6;
+  --shadow:0 1px 2px rgba(20,27,38,.06), 0 6px 16px -10px rgba(20,27,38,.22);
+  --sans:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display:"Archivo", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0E131A; --surface:#161D26; --surface-2:#1B232E;
+    --ink:#E8ECF2; --ink-2:#AAB4C0; --ink-3:#7E8894;
+    --line:#2A3542; --line-2:#212B36;
+    --accent:#8AA9E8; --accent-soft:#1D2940;
+    --up:#5FC7A6; --up-soft:#12302A;
+    --down:#94A0AD; --down-soft:#222C37;
+    --warn:#EC8098; --warn-soft:#331A22;
+    --pend:#D7B85B; --pend-soft:#2E2818;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0E131A; --surface:#161D26; --surface-2:#1B232E;
+  --ink:#E8ECF2; --ink-2:#AAB4C0; --ink-3:#7E8894;
+  --line:#2A3542; --line-2:#212B36;
+  --accent:#8AA9E8; --accent-soft:#1D2940;
+  --up:#5FC7A6; --up-soft:#12302A;
+  --down:#94A0AD; --down-soft:#222C37;
+  --warn:#EC8098; --warn-soft:#331A22;
+  --pend:#D7B85B; --pend-soft:#2E2818;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 20px -12px rgba(0,0,0,.7);
+}
+
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 56px}
+
+.masthead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px 24px;padding-bottom:14px;border-bottom:2px solid var(--ink);margin-bottom:16px}
+.masthead h1{font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.015em;margin:0}
+.masthead .sub{color:var(--ink-2);margin:2px 0 0;font-size:13px;max-width:64ch}
+.masthead-meta{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.stamp{font-family:var(--mono);font-size:11px;color:var(--ink-3)}
+.mock-chip{display:inline-flex;align-items:center;gap:6px;background:var(--pend-soft);color:var(--pend);border:1px solid color-mix(in srgb,var(--pend) 32%,transparent);border-radius:3px;padding:3px 8px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+
+.tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.tab{appearance:none;background:none;border:0;border-bottom:2px solid transparent;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--ink-3);padding:9px 14px;cursor:pointer;margin-bottom:-1px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px 3px 0 0}
+.tab .cnt{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-left:5px}
+
+.envbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.envs{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.env{appearance:none;background:none;border:0;border-right:1px solid var(--line);font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--ink-2);padding:7px 14px;cursor:pointer}
+.env:last-child{border-right:0}
+.env:hover:not(:disabled){background:var(--surface-2)}
+.env[aria-pressed="true"]{background:var(--accent);color:#fff}
+.env:disabled{color:var(--ink-3);opacity:.5;cursor:not-allowed}
+.env:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.bh-note{font-size:12px;color:var(--ink-2)}
+
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-bottom:16px}
+.stat{background:var(--surface);padding:11px 14px;display:flex;flex-direction:column;gap:1px}
+.stat.alarm{background:var(--warn-soft)}
+.stat .k{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.stat.alarm .k{color:var(--warn)}
+.stat .v{font-family:var(--display);font-weight:700;font-size:22px;font-variant-numeric:tabular-nums}
+.stat.alarm .v{color:var(--warn)}
+.stat .n{font-size:11.5px;color:var(--ink-3)}
+.dot{width:8px;height:8px;border-radius:50%;flex:none}
+.dot.up{background:var(--up)} .dot.down{background:var(--down)} .dot.wn{background:var(--warn)}
+
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.field{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 10px}
+.field svg{flex:none;color:var(--ink-3)}
+input[type="search"],select{appearance:none;background:none;border:0;color:var(--ink);font-family:var(--sans);font-size:13px;min-width:160px}
+select{min-width:140px;cursor:pointer}
+input:focus,select:focus{outline:none}
+.field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.lbl{font-size:10.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em}
+.toggle{display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 11px;cursor:pointer;font-size:13px;color:var(--ink-2)}
+.toggle:hover{border-color:var(--accent)}
+.toggle[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#fff;font-weight:600}
+.toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.count-note{margin-left:auto;font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:5px;box-shadow:var(--shadow);overflow:hidden}
+.tscroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:920px}
+thead th{text-align:left;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding:9px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);white-space:nowrap}
+tbody td{padding:12px;border-bottom:1px solid var(--line-2);vertical-align:top}
+tbody tr.row:hover,tbody tr.row.open{background:var(--surface-2)}
+td.first{border-left:3px solid var(--sc,transparent);padding-left:11px}
+tr.started td.first{--sc:var(--up)}
+tr.stopped td.first{--sc:var(--down)}
+tr.unknown td.first{--sc:var(--ink-3)}
+tr.attn td.first{--sc:var(--warn)}
+
+.comps{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+.comp{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.04em;border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-3)}
+.comp.on{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent);background:var(--accent-soft)}
+.cstate{display:block;margin-top:5px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap}
+.cstate b{font-weight:500}
+.cstate .ok{color:var(--up)}
+.cstate .no{color:var(--warn)}
+.cstate .sep{color:var(--ink-3);padding:0 4px}
+
+.stack-id{font-family:var(--mono);font-size:13.5px;font-weight:500}
+.disclose{appearance:none;background:none;border:0;cursor:pointer;color:var(--ink-3);font-family:var(--sans);font-size:11.5px;display:inline-flex;align-items:center;gap:4px;padding:2px 0;margin-top:3px}
+.disclose:hover{color:var(--accent)}
+.disclose:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+.disclose .caret{transition:transform .15s ease;display:inline-block}
+tr.row.open .disclose .caret{transform:rotate(90deg)}
+
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:3px;padding:3px 8px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.pill.started{background:var(--up-soft);color:var(--up);border-color:color-mix(in srgb,var(--up) 25%,transparent)}
+.pill.stopped{background:var(--down-soft);color:var(--down);border-color:color-mix(in srgb,var(--down) 25%,transparent)}
+.pill.unknown{background:var(--surface-2);color:var(--ink-3);border-color:var(--line)}
+.pill.partial{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 30%,transparent)}
+.pill.effect{background:var(--up-soft);color:var(--up);border-color:color-mix(in srgb,var(--up) 25%,transparent)}
+.pill.notmerged{background:var(--pend-soft);color:var(--pend);border-color:color-mix(in srgb,var(--pend) 28%,transparent)}
+.flag{display:block;margin-top:4px;font-size:11px;font-weight:600;color:var(--warn)}
+
+.owner .nm{font-weight:500}
+.use{color:var(--ink-2);max-width:24ch}
+.when{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.when .sub{display:block;font-family:var(--sans);font-size:11.5px;color:var(--ink-3);margin-top:2px;white-space:normal;max-width:20ch}
+.exc-cell a{color:var(--accent);text-decoration:none;font-family:var(--mono);font-size:12px}
+.exc-cell a:hover{text-decoration:underline}
+.exc-cell .win{font-size:11.5px;color:var(--ink-3);display:block;margin-top:3px;font-family:var(--mono)}
+.exc-cell .reqlink{display:inline-block;margin-top:3px;font-size:11.5px}
+.excwarn{display:block;margin-top:4px;font-size:11.5px;font-weight:500;color:var(--pend);max-width:26ch;white-space:normal}
+.kv .rsn{color:var(--ink-3);font-size:11.5px;font-family:var(--sans)}
+.kv.tech,.kv .tech{color:var(--ink-3)}
+.muted{color:var(--ink-3)}
+
+tr.detail td{background:var(--surface-2);border-bottom:1px solid var(--line);padding:0 12px 14px 15px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px 26px;padding-top:2px}
+.dl .dt{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.dl ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px}
+.dl a{color:var(--accent);font-family:var(--mono);font-size:12px;text-decoration:none;word-break:break-all}
+.dl a:hover{text-decoration:underline}
+.dl p{margin:0;color:var(--ink-2);font-size:12.5px}
+.dl p + p{margin-top:5px}
+.url-role{font-family:var(--sans);font-size:10.5px;font-weight:600;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin-right:6px}
+.kv{font-family:var(--mono);font-size:12px;color:var(--ink-2)}
+.kv b{color:var(--ink);font-weight:500}
+
+.cal-head{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.cal-head h2{font-family:var(--display);font-size:15px;font-weight:700;margin:0;min-width:170px}
+.navbtn{appearance:none;background:var(--surface);border:1px solid var(--line);border-radius:4px;width:28px;height:28px;cursor:pointer;color:var(--ink-2);font-size:14px;line-height:1}
+.navbtn:hover{border-color:var(--accent);color:var(--accent)}
+.navbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{margin-left:auto;display:flex;flex-wrap:wrap;gap:12px;font-size:11.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.swatch{width:11px;height:11px;border-radius:2px;flex:none}
+.cal{padding:12px 14px 16px}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:5px}
+.dow div{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);padding-left:3px}
+.week{margin-bottom:5px}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.day{border:1px solid var(--line-2);border-radius:3px 3px 0 0;border-bottom:0;background:var(--surface);padding:4px 6px;min-height:26px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);display:flex;justify-content:space-between;gap:4px}
+.day .bh{font-size:9px;font-family:var(--sans);font-weight:600;color:var(--pend)}
+.day.out{background:var(--surface-2);color:var(--ink-3);opacity:.55}
+.day.wknd{background:var(--surface-2)}
+.day.today{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:500}
+.lanes{display:grid;grid-template-columns:repeat(7,1fr);gap:3px 4px;border:1px solid var(--line-2);border-top:0;border-radius:0 0 3px 3px;padding:4px;min-height:30px;background:var(--surface)}
+.bar{border-radius:3px;padding:3px 7px;font-size:11.5px;display:flex;align-items:center;gap:6px;overflow:hidden;white-space:nowrap;border-left:3px solid}
+.bar .b-stack{font-family:var(--mono);font-size:11px;font-weight:500}
+.bar .b-txt{overflow:hidden;text-overflow:ellipsis;opacity:.92}
+.bar.merged{background:var(--up-soft);color:var(--up);border-color:var(--up)}
+.bar.unmerged{background:var(--pend-soft);color:var(--pend);border-color:var(--pend)}
+.bar.expired{background:var(--down-soft);color:var(--down);border-color:var(--down)}
+.cal-empty{padding:26px 14px;text-align:center;color:var(--ink-3);font-size:13px}
+
+.exc-group{padding:14px}
+.exc-group + .exc-group{border-top:1px solid var(--line)}
+.exc-group h3{font-family:var(--display);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.exc-group h3 .rule{flex:1;height:1px;background:var(--line)}
+.exc-list{display:flex;flex-direction:column;gap:8px}
+.exc{display:grid;grid-template-columns:145px 1fr auto;gap:14px;align-items:start;border:1px solid var(--line);border-left:3px solid var(--ec,var(--line));border-radius:4px;padding:10px 12px;background:var(--surface)}
+.exc.merged{--ec:var(--up)} .exc.unmerged{--ec:var(--pend)} .exc.expired{--ec:var(--down)}
+.exc .w{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.exc .w small{display:block;color:var(--ink-3);font-size:11px;margin-top:2px}
+.exc .who{color:var(--ink-2);font-size:12.5px;margin-top:5px}
+.exc .why{margin:0;color:var(--ink-2);font-size:12.5px;max-width:70ch}
+.exc .stacks{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.exc .stacks code{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:2px;padding:1px 5px}
+.exc .right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.exc .right a{color:var(--accent);font-family:var(--mono);font-size:11.5px;text-decoration:none}
+.warn-line{margin:6px 0 0;font-size:12px;color:var(--pend);font-weight:500}
+
+.notes{margin-top:26px}
+.notes h2{font-family:var(--display);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.note-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:14px 16px}
+.note h3{font-family:var(--display);font-size:14px;font-weight:700;margin:0 0 8px}
+.note p{margin:0 0 8px;color:var(--ink-2);font-size:12.5px}
+.note ul{margin:0;padding-left:17px;color:var(--ink-2);font-size:12.5px;display:flex;flex-direction:column;gap:5px}
+.note code{font-family:var(--mono);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:2px;padding:1px 4px;color:var(--ink)}
+.note.later{border-left:3px solid var(--ink-3)}
+.note.later h3{color:var(--ink-3)}
+
+.hidden{display:none}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (max-width:720px){.exc{grid-template-columns:1fr}.exc .right{align-items:flex-start}.masthead-meta{margin-left:0;align-items:flex-start}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>CRIME Environment Board</h1>
+      <p class="sub">Which stacks are up, when they shut down, and whether your exception request is actually active.</p>
+    </div>
+    <div class="masthead-meta">
+      <span class="mock-chip" id="src-chip">Sample data</span>
+      <span class="stamp" id="stamp"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-board" aria-selected="true" aria-controls="view-board">Environments<span class="cnt" id="cnt-stacks"></span></button>
+    <button class="tab" role="tab" id="tab-cal" aria-selected="false" aria-controls="view-cal">Calendar</button>
+    <button class="tab" role="tab" id="tab-exc" aria-selected="false" aria-controls="view-exc">Exceptions<span class="cnt" id="cnt-exc"></span></button>
+  </nav>
+
+  <section id="view-board" role="tabpanel" aria-labelledby="tab-board">
+    <div class="envbar">
+      <div class="envs" role="group" aria-label="Environment">
+        <button class="env" data-env="DEV" aria-pressed="true">DEV</button>
+        <button class="env" data-env="STE" aria-pressed="false">STE</button>
+        <button class="env" data-env="SIT" aria-pressed="false" disabled title="Reserved for expansion">SIT</button>
+        <button class="env" data-env="NFT" aria-pressed="false" disabled title="Reserved for expansion">NFT</button>
+      </div>
+      <span class="bh-note" id="bh-note"></span>
+    </div>
+
+    <div class="strip" id="strip"></div>
+
+    <div class="controls">
+      <label class="field">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input type="search" id="q" placeholder="Search stack, owner or usage" aria-label="Search">
+      </label>
+      <label class="field"><span class="lbl">Owner</span>
+        <select id="owner" aria-label="Filter by owner"><option value="all">Anyone</option></select>
+      </label>
+      <button class="toggle" id="attn" aria-pressed="false">Needs attention only</button>
+      <span class="count-note" id="shown"></span>
+    </div>
+
+    <div class="panel">
+      <div class="tscroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Stack</th>
+              <th>Owner (DM)</th>
+              <th>Used for</th>
+              <th>State now</th>
+              <th>Shuts down</th>
+              <th>Exception request</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-cal" class="hidden" role="tabpanel" aria-labelledby="tab-cal">
+    <div class="panel">
+      <div class="cal-head">
+        <button class="navbtn" id="prev" aria-label="Previous month">&lsaquo;</button>
+        <button class="navbtn" id="next" aria-label="Next month">&rsaquo;</button>
+        <h2 id="month"></h2>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--up)"></i>Approved &mdash; will apply</span>
+          <span><i class="swatch" style="background:var(--pend)"></i>Won't apply &mdash; stack still shuts down</span>
+          <span><i class="swatch" style="background:var(--down)"></i>Ended</span>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+  </section>
+
+  <section id="view-exc" class="hidden" role="tabpanel" aria-labelledby="tab-exc">
+    <div class="panel" id="excpanel"></div>
+  </section>
+
+  <section class="notes">
+    <h2>Design notes for the build story</h2>
+    <div class="note-grid">
+      <div class="note">
+        <h3>Six columns, one question each</h3>
+        <p>Every column answers something a DM actually asks: whose is it, what's it for, is it up, when does it go down, and is my exception live. Nothing on the row requires knowing how the pipeline works.</p>
+        <p><b>State now</b> is the observed value from <code>state/environments/*.json</code> &mdash; never inferred from the clock &mdash; carrying <code>aggregateStatus</code> plus the per-component line beneath it. Where it disagrees with the schedule the row carries a quiet <b>not what the schedule expects</b> flag rather than a headline metric.</p>
+      </div>
+      <div class="note">
+        <h3>A failed check never blanks the record</h3>
+        <p>When verification fails or a run publishes no artifact, the writer keeps the last good observation and alerts &mdash; it never persists <code>unknown</code>. So a failed check shows up as an observation that <em>stops getting newer</em>, not as an empty one.</p>
+        <p>That gives two different rows: <b>Last checked 14.5 hours ago &mdash; a check may have failed</b> where a record exists but has gone stale, and <b>Never checked</b> where a stack is in the schedule but has no verified result at all. They mean different things and need different follow-up, so they don't share a label.</p>
+      </div>
+      <div class="note">
+        <h3>Components on the row, reasons behind it</h3>
+        <p>The state record carries AKS, IaaS and PaaS separately, so the row does too: which components a stack has, and whether each is up. A stack whose AKS is up but PaaS is stopped reads <b>Partly up &middot; AKS up &middot; PaaS down</b> &mdash; not &ldquo;not known&rdquo;, because that state is known and specifically wrong. DMs use these component names already, so they stay as they are.</p>
+        <p>What stays behind <b>Detail</b> is the <em>why</em>: each component's verification reason, the observation's age, and its source pipeline and run ID. A DM needs to see that PaaS is down; they escalate the timeout reason rather than debug it.</p>
+      </div>
+      <div class="note">
+        <h3>Say what it does, not how it works</h3>
+        <p>Automation reads merged configuration only, so a request that hasn't been applied does nothing. But <em>merged</em>, <em>PR</em> and <em>main</em> are our words, not a DM's &mdash; so the board says <b>Not approved</b>, <b>Approved, not applied</b>, <b>Approved from 10 Sep</b>, <b>Active now</b> and <b>Ended</b>.</p>
+        <p>The two blocked states are split because they need different people. <b>Not approved</b> means chase an approver; <b>Approved, not applied</b> means approval happened but the change never reached the schedule &mdash; a platform problem, and one a single &ldquo;not applied&rdquo; label would have sent the DM chasing the wrong person for.</p>
+        <p>None of them use the word <em>yet</em> on its own: <em>yet</em> implies it is on track, when nothing happens without someone acting. Each carries the consequence beside it &mdash; <em>won't apply, stack still shuts down</em> &mdash; because the state alone doesn't tell a DM what to do.</p>
+        <p>Component names (AKS, IaaS, PaaS) stay technical because DMs already use them. Pipeline numbers and run IDs stay in <b>Detail</b>, where they help whoever gets escalated to.</p>
+        <p>Baseline is 06:00&ndash;19:00; delays to 21:00 / 23:00 / 24h and weekend presets show as the effective shutdown time, not as config syntax.</p>
+      </div>
+      <div class="note later">
+        <h3>Deliberately deferred to v2</h3>
+        <ul>
+          <li>Drift as a summary tile and a filter, once someone owns acting on it</li>
+          <li>Observation age as a column, with an agreed staleness threshold</li>
+          <li>Provenance links into ADO run results</li>
+          <li>CNP-style insights: charts, cost, CSV export</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const BASE_START = "06:00", BASE_STOP = "19:00";
+const STALE_HOURS = 4;
+const REPO = "https://github.com/hmcts/cpp-auto-shutdown";
+const ADO = "https://dev.azure.com/hmcts-cpp/cpp-apps/_build/results?buildId=";
+const BANK_HOLIDAYS = {"2026-08-31":"Summer","2026-12-25":"Christmas","2026-12-28":"Boxing Day (sub)"};
+
+/* ---------------------------------------------------------------------------
+   DATA SOURCE
+
+   This page renders the bundled sample data below, so it works with no network
+   and before any pipeline has run. It is a design reference, not live.
+
+   To read real observed state instead, set USE_LIVE = true. The repo is public,
+   so the browser fetches the state file straight from raw.githubusercontent.com
+   and NO Pages rebuild is needed when state changes (see DESIGN.md §2).
+
+   config/stacks.yaml stays bundled for now: it is YAML, and whether the browser
+   parses it with js-yaml or CI emits a JSON twin is still open (DESIGN.md §10).
+
+   Sample records use `hoursAgo` so the demo always reads sensibly; real records
+   carry `observedAt` as an ISO timestamp. ageHours() accepts either.
+--------------------------------------------------------------------------- */
+const USE_LIVE = false;
+const RAW = "https://raw.githubusercontent.com/hmcts/cpp-auto-shutdown/main";
+const POLL_MS = 60000;
+
+const ageHours = rec => rec.observedAt
+  ? (Date.now() - Date.parse(rec.observedAt)) / 3600000
+  : rec.hoursAgo;
+
+async function fetchState(env){
+  const res = await fetch(`${RAW}/state/environments/${env.toLowerCase()}.json`, {cache:"no-store"});
+  if (!res.ok) throw new Error(`${res.status} fetching ${env} state`);
+  return (await res.json()).stacks;   // keyed by stack id — DESIGN.md §3
+}
+
+/* Keep the last good render on failure; never silently show stale data. */
+function startLiveRefresh(){
+  const chip = document.getElementById("src-chip");
+  const refresh = async () => {
+    try {
+      const stacks = await fetchState(filters.env);
+      Object.keys(STATE).forEach(k => { if (k.startsWith(filters.env)) delete STATE[k]; });
+      Object.assign(STATE, stacks);
+      chip.textContent = "Live";
+      chip.style.opacity = "1";
+      render();
+    } catch (err) {
+      chip.textContent = "Refresh failed — showing last loaded data";
+      console.error(err);
+    }
+  };
+  refresh();
+  setInterval(refresh, POLL_MS);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+}
+
+const PARTS = {aks:{label:"AKS"}, iaas:{label:"IaaS"}, paas:{label:"PaaS"}};
+const PART_OF = {AKS:"aks", IaaS:"iaas", PaaS:"paas"};
+
+const CONFIG = [
+  {id:"DEVCCM01", env:"DEV", components:["AKS"], owner:"Pankaj Verma", use:"Release testing", stop:"23:00", weekend:null,
+   urls:[["","https://devccm01-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"Evening cover and automated API runs."},
+  {id:"DEVCCM02", env:"DEV", components:["AKS"], owner:"Pankaj Verma", use:"Release testing", stop:"23:00", weekend:null,
+   urls:[["","https://devccm02-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"AE2e suite runs in the evening."},
+  {id:"DEVCCM03", env:"DEV", components:["AKS","IaaS"], owner:"Ashish Sidhu", use:"Prosecuting integration", stop:"24h", weekend:"24h",
+   urls:[["UI","https://prosecuting.dev03.cjscp.org.uk/"],["APIGW","https://apigw.dev03.cjscp.org.uk/"],["OLP","https://onlineplea.dev03.cjscp.org.uk/"]], note:"Internet facing."},
+  {id:"DEVCCM04", env:"DEV", components:["AKS"], owner:"Vipin Murali", use:"Shared dev", stop:null, weekend:null,
+   urls:[["UI","https://prosecuting.dev.cjscp.org.uk/"],["APIGW","https://apigw.dev.cjscp.org.uk/"]], note:"Internet facing."},
+  {id:"DEVCCM05", env:"DEV", components:["AKS","PaaS"], owner:"Laxman Kerai", use:"No.10 Case Readiness Dashboard", stop:"23:00", weekend:"06:00-19:00",
+   urls:[["","https://devccm05-frontend.web01.dev.nl.cjscp.org.uk/"],["UI","https://prosecuting.dev05.cjscp.org.uk/"]], note:"Internet facing."},
+  {id:"DEVCCM06", env:"DEV", components:["AKS"], owner:"Gerard Fyson", use:"Crown Court Scheduler UAT, S&L team", stop:"21:00", weekend:null,
+   urls:[["","https://devccm06-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"Reserved for S&L UAT."},
+  {id:"DEVCCM07", env:"DEV", components:["AKS","IaaS","PaaS"], owner:"Laxman Kerai", use:"Resulting Assistant", stop:"23:00", weekend:"06:00-23:00",
+   urls:[["","https://devccm07-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"Internet facing."},
+  {id:"DEVCCM08", env:"DEV", components:["AKS"], owner:"Varun Vijayagopal", use:"Artemis upgrade testing", stop:"21:00", weekend:null,
+   urls:[["","https://devccm08-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"Shared with Laxman Kerai and Chirag Pareek."},
+  {id:"DEVCCM09", env:"DEV", components:["AKS"], owner:"Romina Ahmad", use:"Case Admin B", stop:"21:00", weekend:null,
+   urls:[["","https://devccm09-frontend.web01.dev.nl.cjscp.org.uk/"]], note:"Lent to the Release Improvement team."},
+  {id:"STECCM11", env:"STE", components:["AKS"], owner:"Ashish Sidhu", use:"Staging regression", stop:null, weekend:null, urls:[], note:""},
+  {id:"STECCM12", env:"STE", components:["AKS","PaaS"], owner:"Gerard Fyson", use:"Pre-release verification", stop:"21:00", weekend:null, urls:[], note:""},
+  {id:"STECCM13", env:"STE", components:["AKS"], owner:"Romina Ahmad", use:"Case Admin staging", stop:null, weekend:null, urls:[], note:"Auto-suspend candidate."},
+  {id:"STECCM14", env:"STE", components:["AKS","IaaS"], owner:"Vipin Murali", use:"Portal integration", stop:"23:00", weekend:"06:00-19:00", urls:[], note:""}
+];
+
+const STATE = {
+  DEVCCM01:{aggregateStatus:"started",hoursAgo:0.4,sourcePipeline:402,sourceRunId:825901,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"}}},
+  DEVCCM02:{aggregateStatus:"started",hoursAgo:0.4,sourcePipeline:402,sourceRunId:825901,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"}}},
+  DEVCCM03:{aggregateStatus:"started",hoursAgo:1.1,sourcePipeline:402,sourceRunId:825870,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"},
+                iaas:{status:"started",verified:true,reason:"3/3 VMs running; services ready"}}},
+  DEVCCM04:{aggregateStatus:"started",hoursAgo:2.2,sourcePipeline:375,sourceRunId:825812,
+    components:{aks:{status:"started",verified:true,reason:"Manual scale to 3 replicas"}}},
+  DEVCCM05:{aggregateStatus:"partial",hoursAgo:0.8,sourcePipeline:402,sourceRunId:825888,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"},
+                paas:{status:"stopped",verified:true,reason:"PostgreSQL flexible server reports stopped"}}},
+  DEVCCM06:{aggregateStatus:"started",hoursAgo:0.6,sourcePipeline:402,sourceRunId:825901,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"}}},
+  DEVCCM07:{aggregateStatus:"started",hoursAgo:0.6,sourcePipeline:402,sourceRunId:825901,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"},
+                iaas:{status:"started",verified:true,reason:"2/2 VMs running"},
+                paas:{status:"started",verified:true,reason:"Server reports ready"}}},
+  DEVCCM08:{aggregateStatus:"stopped",hoursAgo:14.5,sourcePipeline:404,sourceRunId:825603,
+    components:{aks:{status:"stopped",verified:true,reason:"Zero desired/current/ready replicas"}}},
+  DEVCCM09:null,
+  STECCM11:{aggregateStatus:"stopped",hoursAgo:0.3,sourcePipeline:379,sourceRunId:826004,
+    components:{aks:{status:"stopped",verified:true,reason:"Scaled to zero by auto-suspend"}}},
+  STECCM12:{aggregateStatus:"started",hoursAgo:0.5,sourcePipeline:402,sourceRunId:825977,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"},
+                paas:{status:"started",verified:true,reason:"Server reports ready"}}},
+  STECCM13:{aggregateStatus:"started",hoursAgo:0.3,sourcePipeline:402,sourceRunId:825735,
+    components:{aks:{status:"started",verified:true,reason:"All requested AKS workloads ready"}}},
+  STECCM14:{aggregateStatus:"partial",hoursAgo:5.6,sourcePipeline:404,sourceRunId:825690,
+    components:{aks:{status:"stopped",verified:true,reason:"Zero replicas confirmed"},
+                iaas:{status:"started",verified:false,reason:"VM crime-portal-vm02 still running; verification timed out"}}}
+};
+
+const EXCEPTIONS = [
+  {issue:105,pr:212,merged:true,stacks:["DEVCCM08"],start:"2026-09-01",end:"2026-09-03",
+   requester:"Varun Vijayagopal",approver:"Laxman Kerai",ref:"CPP-4703",window:"24h",
+   why:"Artemis upgrade testing — overnight soak run across three nights."},
+  {issue:118,pr:224,merged:true,stacks:["DEVCCM01","DEVCCM02"],start:"2026-09-08",end:"2026-09-09",
+   requester:"Pankaj Verma",approver:"auto",ref:"CPP-4880",window:"24h",
+   why:"Release testing — AE2e suite needs the API available past 23:00."},
+  {issue:112,pr:219,merged:true,stacks:["DEVCCM06"],start:"2026-09-10",end:"2026-09-12",
+   requester:"Gerard Fyson",approver:"Ashish Sidhu",ref:"CPP-4821",window:"06:00–23:00",
+   why:"Crown Court Scheduler UAT with the S&L team; sessions run to 21:30."},
+  {issue:121,pr:null,merged:false,stacks:["DEVCCM09"],start:"2026-09-15",end:"2026-09-19",
+   requester:"Romina Ahmad",approver:null,ref:"CPP-4902",window:"24h",
+   why:"Case Admin B regression pack — five consecutive overnight runs."},
+  {issue:124,pr:228,merged:true,stacks:["STECCM13"],start:"2026-09-22",end:"2026-09-23",
+   requester:"Laxman Kerai",approver:"Vipin Murali",ref:"CPP-4915",window:"06:00–23:00",
+   why:"No.10 Case Readiness Dashboard — demo prep and rehearsal."}
+];
+
+function londonNow(){
+  const p = new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/London",year:"numeric",month:"2-digit",
+    day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false})
+    .formatToParts(new Date()).reduce((a,x)=>(a[x.type]=x.value,a),{});
+  return {hh:+(p.hour==="24"?"0":p.hour), mm:+p.minute, iso:`${p.year}-${p.month}-${p.day}`};
+}
+const NOW = londonNow();
+const NOW_MINS = NOW.hh*60 + NOW.mm;
+const toMins = t => (+t.slice(0,2))*60 + (+t.slice(3,5));
+const dayOf = iso => new Date(iso+"T12:00:00Z").getUTCDay();
+const isWeekend = iso => dayOf(iso)===0 || dayOf(iso)===6;
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDate = iso => { const [,m,d]=iso.split("-"); return `${d} ${MON[+m-1]}`; };
+const fmtAge = h => h<1 ? `${Math.round(h*60)} min ago` : h<24 ? `${h.toFixed(1)} hours ago` : `${Math.floor(h/24)} days ago`;
+
+const excFor = (id,iso,mergedOnly) => EXCEPTIONS.find(e =>
+  e.stacks.includes(id) && (!mergedOnly||e.merged) && e.start<=iso && iso<=e.end);
+const nextExcFor = (id,iso) => EXCEPTIONS.filter(e => e.stacks.includes(id) && e.start>iso)
+  .sort((a,b)=>a.start.localeCompare(b.start))[0];
+
+/* what config says right now, and when it next shuts down */
+function schedule(c){
+  const exc = excFor(c.id, NOW.iso, true);
+  if (exc) return {status:"started", start:BASE_START,
+                   stop: exc.window==="24h" ? null : exc.window.split("–")[1], kind:"exception"};
+  const bh = BANK_HOLIDAYS[NOW.iso];
+  const special = bh || isWeekend(NOW.iso);
+  if (special && !c.weekend)
+    return {status:"stopped", start:BASE_START, stop:null, kind: bh ? "bankholiday" : "weekendoff"};
+  const win = special ? c.weekend : (c.stop || BASE_STOP);
+  if (win === "24h") return {status:"started", start:null, stop:null, kind:"allday"};
+  const [ws,we] = special ? win.split("-") : [BASE_START, win];
+  const inHours = NOW_MINS >= toMins(ws) && NOW_MINS < toMins(we);
+  return {status: inHours?"started":"stopped", start:ws, stop:we,
+          kind: special ? "weekend" : (c.stop && c.stop !== BASE_STOP ? "extended" : "baseline")};
+}
+/* Only what time it goes off today. Whose request caused it belongs to the exception column. */
+const QUALIFIER = {exception:"extended by exception", extended:"later than baseline",
+                   weekend:"weekend hours", baseline:"", allday:"", bankholiday:"", weekendoff:""};
+function shutdownCell(sch, observed){
+  const pair = (big, small) => `<span class="when">${big}<span class="sub">${small}</span></span>`;
+  if (sch.kind === "bankholiday")   return pair("&mdash;", "Bank holiday &mdash; not started today");
+  if (sch.kind === "weekendoff")    return pair("&mdash;", "Not scheduled this weekend");
+  if (observed === "stopped")       return pair("&mdash;", `Already down &middot; next start ${sch.start || BASE_START}`);
+  if (!sch.stop)                    return pair("Stays on", sch.kind === "exception" ? "Extended by exception" : "Runs 24 hours");
+  const q = QUALIFIER[sch.kind];
+  return pair(sch.stop, `today${q ? ` &middot; ${q}` : ""}`);
+}
+
+function model(c){
+  const st = STATE[c.id] || null;
+  const sch = schedule(c);
+  const stale = st ? ageHours(st) > STALE_HOURS : true;
+  const observed = st ? st.aggregateStatus : "unknown";
+  const mismatch = st && !stale && observed !== "partial" && observed !== sch.status;
+  const attn = mismatch || stale || observed === "unknown" || observed === "partial";
+  return {c, st, sch, observed, stale, mismatch, attn};
+}
+/* Per-part line in plain English, shown when a stack has more than one part */
+function componentLine(c, st){
+  if (!st) return "";
+  const parts = ["aks","iaas","paas"]
+    .filter(k => st.components[k])
+    .map(k => {
+      const v = st.components[k];
+      const cls = !v.verified ? "no" : v.status === "started" ? "ok" : "";
+      const word = !v.verified ? "not known" : v.status === "started" ? "up" : "down";
+      return `<b>${PARTS[k].label}</b> <span class="${cls}">${word}</span>`;
+    });
+  if (parts.length < 2) return "";
+  return `<span class="cstate">${parts.join(`<span class="sep">·</span>`)}</span>`;
+}
+/* Exception status in outcome language, not Git language */
+function excStatus(e, live){
+  if (e.end < NOW.iso) return {cls:"expired", label:"Ended", warn:null};
+  if (!e.merged){
+    return e.approver
+      /* approved, but the change hasn't reached the config the scheduler reads */
+      ? {cls:"notmerged", label:"Approved, not applied",
+         warn:`Won't apply &mdash; stack still shuts down. Chase the platform team before ${fmtDate(e.start)}`}
+      : {cls:"notmerged", label:"Not approved",
+         warn:`Won't apply &mdash; stack still shuts down. Needs approving before ${fmtDate(e.start)}`};
+  }
+  if (live) return {cls:"effect", label:"Active now", warn:null};
+  return {cls:"effect", label:`Approved from ${fmtDate(e.start)}`, warn:null};
+}
+
+const tbody = document.getElementById("tbody");
+let filters = {q:"", owner:"all", env:"DEV", attn:false};
+
+function render(){
+  const all = CONFIG.filter(c => c.env === filters.env).map(model);
+  const list = all.filter(m => {
+    if (filters.attn && !m.attn) return false;
+    if (filters.owner !== "all" && m.c.owner !== filters.owner) return false;
+    const q = filters.q.trim().toLowerCase();
+    if (q && ![m.c.id,m.c.use,m.c.owner,m.c.note].join(" ").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  tbody.innerHTML = list.map(m => {
+    const {c, st, sch} = m;
+    const e = excFor(c.id, NOW.iso, false) || nextExcFor(c.id, NOW.iso);
+    const live = e && excFor(c.id, NOW.iso, true) === e;
+
+    const es = e ? excStatus(e, live) : null;
+    const excCell = e
+      ? `<span class="pill ${es.cls}">${es.label}</span>
+         ${es.warn ? `<span class="excwarn">${es.warn}</span>` : ""}
+         <span class="win">${fmtDate(e.start)} &ndash; ${fmtDate(e.end)}</span>
+         <a href="${REPO}/issues/${e.issue}" class="reqlink">Request #${e.issue}</a>`
+      : `<span class="muted">None</span>`;
+
+    const whenCell = shutdownCell(sch, m.observed);
+
+    const comps = st ? ["aks","iaas","paas"].map(k => {
+      const v = st.components[k]; if (!v) return "";
+      return `<p class="kv"><b>${PARTS[k].label}</b> &mdash; ${
+        v.status}${v.verified?"":", could not be confirmed"}<br><span class="rsn">${v.reason}</span></p>`;
+    }).join("") : `<p class="kv">This stack is in the schedule but has never been successfully checked, so there is no result to show.</p>`;
+
+    const prov = st
+      ? `<p class="kv">Last checked <b>${fmtAge(ageHours(st))}</b>${
+           m.stale?" — older than expected. A check has probably failed; the last known result is kept and the platform team is alerted.":""}</p>
+         <p class="kv tech">Pipeline ${st.sourcePipeline} · <a href="${ADO}${st.sourceRunId}">run ${st.sourceRunId}</a></p>`
+      : `<p class="kv">No successful check on record.</p>`;
+
+    const urls = c.urls.length
+      ? c.urls.map(([r,u])=>`<li>${r?`<span class="url-role">${r}</span>`:""}<a href="${u}">${u.replace(/^https:\/\//,"")}</a></li>`).join("")
+      : `<li class="muted" style="font-size:12.5px">No URLs recorded</li>`;
+
+    return `
+    <tr class="row ${m.attn?"attn":m.observed}" data-id="${c.id}">
+      <td class="first">
+        <div class="stack-id">${c.id}</div>
+        <div class="comps">${["AKS","IaaS","PaaS"].map(k =>
+          `<span class="comp${c.components.includes(k)?" on":""}">${k}</span>`).join("")}</div>
+        <button class="disclose" data-toggle="${c.id}" aria-expanded="false"><span class="caret">&rsaquo;</span> Detail</button>
+      </td>
+      <td class="owner"><span class="nm">${c.owner}</span></td>
+      <td class="use">${c.use}</td>
+      <td>
+        <span class="pill ${m.observed}">${
+          m.observed==="unknown" ? "Not known" :
+          m.observed==="partial" ? "Partly up" :
+          m.observed==="started" ? "Up" : "Shut down"}</span>
+        ${componentLine(c, st)}
+        ${m.mismatch ? `<span class="flag">Not what the schedule says &mdash; ask the platform team</span>` : ""}
+        ${!m.mismatch && m.stale && st ? `<span class="flag">Last checked ${fmtAge(ageHours(st))} &mdash; a check may have failed</span>` : ""}
+        ${!st ? `<span class="flag">Never checked</span>` : ""}
+      </td>
+      <td>${whenCell}</td>
+      <td class="exc-cell">${excCell}</td>
+    </tr>
+    <tr class="detail hidden" data-detail="${c.id}">
+      <td colspan="6">
+        <div class="detail-grid">
+          <div class="dl"><div class="dt">Components</div>${comps}</div>
+          <div class="dl"><div class="dt">Verification</div>${prov}</div>
+          <div class="dl"><div class="dt">Endpoints</div><ul>${urls}</ul></div>
+          <div class="dl"><div class="dt">Notes</div><p>${c.note || "&mdash;"}</p></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("shown").textContent = `${list.length} of ${all.length} stacks`;
+  const n = k => all.filter(k).length;
+  document.getElementById("strip").innerHTML = `
+    <div class="stat"><span class="k"><i class="dot up"></i>Up now</span>
+      <span class="v">${n(m=>m.observed==="started")}</span><span class="n">of ${all.length} stacks</span></div>
+    <div class="stat"><span class="k"><i class="dot down"></i>Shut down</span>
+      <span class="v">${n(m=>m.observed==="stopped")}</span><span class="n">as scheduled</span></div>
+    <div class="stat${n(m=>m.attn)?" alarm":""}"><span class="k"><i class="dot wn"></i>Needs attention</span>
+      <span class="v">${n(m=>m.attn)}</span><span class="n">unexpected, unknown or unchecked</span></div>`;
+}
+
+let calY = +NOW.iso.slice(0,4), calM = +NOW.iso.slice(5,7);
+function renderCal(){
+  const first = new Date(Date.UTC(calY, calM-1, 1));
+  document.getElementById("month").textContent =
+    new Intl.DateTimeFormat("en-GB",{month:"long",year:"numeric",timeZone:"UTC"}).format(first);
+  const offset = (first.getUTCDay()+6)%7;
+  const gs = new Date(first); gs.setUTCDate(1-offset);
+  const iso = d => d.toISOString().slice(0,10);
+  let html = `<div class="dow">${["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>`<div>${d}</div>`).join("")}</div>`;
+  let any = false;
+
+  for (let w=0; w<6; w++){
+    const days = [...Array(7)].map((_,i)=>{ const d=new Date(gs); d.setUTCDate(gs.getUTCDate()+w*7+i); return d; });
+    if (days[0].getUTCMonth() !== calM-1 && w>3) break;
+    const cells = days.map(d=>{
+      const k=iso(d), out=d.getUTCMonth()!==calM-1, today=k===NOW.iso;
+      const wk=d.getUTCDay()===0||d.getUTCDay()===6, bh=BANK_HOLIDAYS[k];
+      return `<div class="day${out?" out":""}${wk&&!today?" wknd":""}${today?" today":""}">
+        <span>${d.getUTCDate()}</span>${bh?`<span class="bh">BH</span>`:""}</div>`;
+    }).join("");
+    const ws=iso(days[0]), we=iso(days[6]);
+    const bars = EXCEPTIONS.flatMap(e=>e.stacks.map(stk=>({e,stk})))
+      .filter(({e})=>e.start<=we && e.end>=ws)
+      .sort((a,b)=>a.e.start.localeCompare(b.e.start)||a.stk.localeCompare(b.stk))
+      .map(({e,stk})=>{
+        const from=Math.max(0,days.findIndex(d=>iso(d)===e.start));
+        const ti=days.findIndex(d=>iso(d)===e.end); const to=ti===-1?6:ti;
+        const cls = e.end<NOW.iso ? "expired" : e.merged ? "merged" : "unmerged";
+        const live = e.merged && e.start<=NOW.iso && e.end>=NOW.iso;
+        const es = excStatus(e, live);
+        const txt = e.merged
+          ? (e.end<NOW.iso ? "ended" : `stays on to ${e.window==="24h"?"midnight":e.window.split("–")[1]}`)
+          : es.label.toLowerCase();
+        any=true;
+        return `<div class="bar ${cls}" style="grid-column:${from+1} / ${to+2}"
+          title="${stk} — ${es.label}${es.warn?`. ${es.warn.replace(/&mdash;/g,"—")}`:""}. ${e.why}">
+          <span class="b-stack">${stk}</span>
+          <span class="b-txt">${txt}</span></div>`;
+      }).join("");
+    html += `<div class="week"><div class="days">${cells}</div><div class="lanes">${bars}</div></div>`;
+  }
+  document.getElementById("cal").innerHTML = html + (any?"":`<div class="cal-empty">No exceptions this month.</div>`);
+}
+
+function renderExc(){
+  const groups = [["Active now",e=>e.start<=NOW.iso&&e.end>=NOW.iso],
+                  ["Upcoming",e=>e.start>NOW.iso],["Finished",e=>e.end<NOW.iso]];
+  document.getElementById("excpanel").innerHTML = groups.map(([title,fn])=>{
+    const items = EXCEPTIONS.filter(fn).sort((a,b)=>a.start.localeCompare(b.start));
+    if (!items.length) return "";
+    return `<div class="exc-group"><h3>${title} <span class="rule"></span>
+      <span style="font-family:var(--mono);font-weight:400">${items.length}</span></h3>
+      <div class="exc-list">${items.map(e=>{
+        const cls = e.end<NOW.iso?"expired":e.merged?"merged":"unmerged";
+        const nights = (new Date(e.end)-new Date(e.start))/86400000 + 1;
+        return `<div class="exc ${cls}">
+          <div><div class="w">${fmtDate(e.start)} &ndash; ${fmtDate(e.end)}
+            <small>${nights} night${nights>1?"s":""} · ${e.window}</small></div></div>
+          <div><div class="stacks">${e.stacks.map(s=>`<code>${s}</code>`).join("")}</div>
+            <p class="why">${e.why}</p>
+            <div class="who">Requested by ${e.requester} &middot; ${
+              e.approver==="auto"?"auto-approved (within policy limits)":
+              e.approver?`approved by ${e.approver}`:"no approver yet"}</div>
+            ${e.merged?"":`<p class="warn-line">&#9888; ${e.approver
+              ? `Approved by ${e.approver}, but not yet applied to the schedule.`
+              : `Not approved, so it has not been applied to the schedule.`}
+              It is having no effect &mdash; the environment will still shut down at its usual time,
+              and it needs to be in place before ${fmtDate(e.start)}.</p>`}</div>
+          <div class="right"><span class="pill ${excStatus(e, e.start<=NOW.iso&&e.end>=NOW.iso&&e.merged).cls}">${
+            excStatus(e, e.start<=NOW.iso&&e.end>=NOW.iso&&e.merged).label}</span>
+            <a href="${REPO}/issues/${e.issue}">Request #${e.issue}</a>
+            <span class="muted" style="font-family:var(--mono);font-size:11.5px">${e.ref}</span></div>
+        </div>`;}).join("")}</div></div>`;
+  }).join("");
+}
+
+document.getElementById("stamp").textContent =
+  `${String(NOW.hh).padStart(2,"0")}:${String(NOW.mm).padStart(2,"0")} · Europe/London`;
+document.getElementById("cnt-stacks").textContent = CONFIG.length;
+document.getElementById("cnt-exc").textContent = EXCEPTIONS.filter(e=>e.end>=NOW.iso).length;
+
+const nextBH = Object.keys(BANK_HOLIDAYS).filter(d=>d>=NOW.iso).sort()[0];
+document.getElementById("bh-note").innerHTML = nextBH
+  ? `Next bank holiday <b>${fmtDate(nextBH)}</b> &mdash; stacks stay down unless excepted`
+  : `Bank holidays are checked before every startup`;
+
+const ownerSel = document.getElementById("owner");
+function refreshOwners(){
+  const names = [...new Set(CONFIG.filter(c=>c.env===filters.env).map(c=>c.owner))].sort();
+  ownerSel.innerHTML = `<option value="all">Anyone</option>` + names.map(o=>`<option value="${o}">${o}</option>`).join("");
+  filters.owner = "all";
+}
+refreshOwners();
+
+document.getElementById("q").addEventListener("input",e=>{filters.q=e.target.value;render();});
+ownerSel.addEventListener("change",e=>{filters.owner=e.target.value;render();});
+document.getElementById("attn").addEventListener("click",e=>{
+  filters.attn = !filters.attn;
+  e.currentTarget.setAttribute("aria-pressed",String(filters.attn));
+  render();
+});
+document.querySelectorAll(".env").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".env").forEach(x=>x.setAttribute("aria-pressed","false"));
+  b.setAttribute("aria-pressed","true"); filters.env=b.dataset.env; refreshOwners(); render();
+}));
+tbody.addEventListener("click",e=>{
+  const btn=e.target.closest("[data-toggle]"); if(!btn) return;
+  const id=btn.dataset.toggle, det=tbody.querySelector(`tr[data-detail="${id}"]`);
+  const open = det.classList.toggle("hidden")===false;
+  tbody.querySelector(`tr.row[data-id="${id}"]`).classList.toggle("open",open);
+  btn.setAttribute("aria-expanded",String(open));
+});
+const views={"tab-board":"view-board","tab-cal":"view-cal","tab-exc":"view-exc"};
+document.querySelectorAll(".tab").forEach(t=>t.addEventListener("click",()=>{
+  Object.entries(views).forEach(([tab,view])=>{
+    const on = tab===t.id;
+    document.getElementById(tab).setAttribute("aria-selected",String(on));
+    document.getElementById(view).classList.toggle("hidden",!on);
+  });
+}));
+document.getElementById("prev").addEventListener("click",()=>{calM--;if(calM<1){calM=12;calY--;}renderCal();});
+document.getElementById("next").addEventListener("click",()=>{calM++;if(calM>12){calM=1;calY++;}renderCal();});
+
+render(); renderCal(); renderExc();
+if (USE_LIVE) startLiveRefresh();
+</script>
+</body>
+</html>
