@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CRIME Environment Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="styles.css">
+<!-- config/stacks.yaml is YAML so humans can comment and review it; the browser
+     needs js-yaml to read it. See docs/DESIGN.md §2. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div>
+      <h1>CRIME Environment Board</h1>
+      <p class="sub">Which stacks are up, when they shut down, and whether your exception request is actually active.</p>
+    </div>
+    <div class="masthead-meta">
+      <span class="mock-chip" id="src-chip">Loading…</span>
+      <span class="stamp" id="stamp"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Views">
+    <button class="tab" role="tab" id="tab-board" aria-selected="true" aria-controls="view-board">Environments<span class="cnt" id="cnt-stacks"></span></button>
+    <button class="tab" role="tab" id="tab-cal" aria-selected="false" aria-controls="view-cal">Calendar</button>
+    <button class="tab" role="tab" id="tab-exc" aria-selected="false" aria-controls="view-exc">Exceptions<span class="cnt" id="cnt-exc"></span></button>
+  </nav>
+
+  <section id="view-board" role="tabpanel" aria-labelledby="tab-board" tabindex="0">
+    <div class="envbar">
+      <div class="envs" role="group" aria-label="Environment">
+        <button class="env" data-env="DEV" aria-pressed="true">DEV</button>
+        <button class="env" data-env="STE" aria-pressed="false">STE</button>
+        <button class="env" data-env="SIT" aria-pressed="false" disabled title="Reserved for expansion">SIT</button>
+        <button class="env" data-env="NFT" aria-pressed="false" disabled title="Reserved for expansion">NFT</button>
+      </div>
+      <span class="bh-note" id="bh-note"></span>
+    </div>
+
+    <div class="strip" id="strip"></div>
+
+    <div class="controls">
+      <label class="field">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.5 10.5 14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <input type="search" id="q" placeholder="Search stack, owner or usage" aria-label="Search stacks">
+      </label>
+      <label class="field"><span class="lbl">Owner</span>
+        <select id="owner" aria-label="Filter by owner"><option value="all">Anyone</option></select>
+      </label>
+      <button class="toggle" id="attn" aria-pressed="false">Needs attention only</button>
+      <span class="count-note" id="shown" role="status"></span>
+    </div>
+
+    <div class="panel">
+      <div class="tscroll" tabindex="0" role="region" aria-label="Environment status table">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Stack</th>
+              <th scope="col">Owner (DM)</th>
+              <th scope="col">Used for</th>
+              <th scope="col">State now</th>
+              <th scope="col">Shuts down</th>
+              <th scope="col">Exception request</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-cal" class="hidden" role="tabpanel" aria-labelledby="tab-cal" tabindex="0">
+    <div class="panel">
+      <div class="cal-head">
+        <button class="navbtn" id="prev" aria-label="Previous month">&lsaquo;</button>
+        <button class="navbtn" id="next" aria-label="Next month">&rsaquo;</button>
+        <h2 id="month"></h2>
+        <div class="legend">
+          <span><i class="swatch" style="background:var(--up)"></i>Approved &mdash; will apply</span>
+          <span><i class="swatch" style="background:var(--pend)"></i>Won't apply &mdash; stack still shuts down</span>
+          <span><i class="swatch" style="background:var(--down)"></i>Ended</span>
+        </div>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+  </section>
+
+  <section id="view-exc" class="hidden" role="tabpanel" aria-labelledby="tab-exc" tabindex="0">
+    <div class="panel" id="excpanel"></div>
+  </section>
+
+  <section class="notes">
+    <h2>How to read this board</h2>
+    <div class="note-grid">
+      <div class="note">
+        <h3>State is observed, not assumed</h3>
+        <p><b>State now</b> is what live verification last found, read from the state file &mdash; it is
+        never worked out from the clock. Where it disagrees with the schedule the row says so.</p>
+        <p><b>Partly up</b> means the components disagree: the application may be running while the
+        database is stopped. The line underneath names which.</p>
+      </div>
+      <div class="note">
+        <h3>A failed check never blanks the record</h3>
+        <p>When a check fails, the last known result is kept and the platform team is alerted. So a
+        failed check shows as a reading that <em>stops getting newer</em>, not as an empty one.</p>
+        <p><b>Last checked 14 hours ago</b> means the value shown is real but possibly out of date.
+        <b>Never checked</b> means this stack has no verified result at all.</p>
+      </div>
+      <div class="note">
+        <h3>A request only counts once it is applied</h3>
+        <p>Automation reads applied configuration only. A request that has not been approved and
+        applied has no effect &mdash; the environment will still shut down at its usual time.</p>
+        <p><b>Not approved</b> needs an approver. <b>Approved, not applied</b> means approval happened
+        but the change never reached the schedule, which is one for the platform team.</p>
+      </div>
+      <div class="note">
+        <h3>Hours</h3>
+        <p>Baseline is 06:00 to 19:00, Europe/London. Shutdown can be delayed to 21:00, 23:00 or run
+        for 24 hours, and weekends run only where a stack opts in.</p>
+        <p>Stacks stay down on bank holidays unless an exception covers the day.
+        Full detail is in
+        <a href="https://github.com/hmcts/cpp-auto-shutdown/blob/main/docs/DESIGN.md">DESIGN.md</a>.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

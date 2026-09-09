@@ -1,0 +1,57 @@
+{
+  "environment": "ste",
+  "stacks": {
+    "STECCM11": {
+      "stack": "STECCM11",
+      "stackComponents": ["AKS"],
+      "aggregateStatus": "stopped",
+      "observedAt": "2026-09-09T09:30:02Z",
+      "sourcePipeline": 379,
+      "sourceRunId": 826004,
+      "components": {
+        "paas": null,
+        "iaas": null,
+        "aks": { "requested": false, "status": "stopped", "verified": true, "reason": "Scaled to zero by auto-suspend after idle detection" }
+      }
+    },
+    "STECCM12": {
+      "stack": "STECCM12",
+      "stackComponents": ["AKS"],
+      "aggregateStatus": "started",
+      "observedAt": "2026-09-09T09:18:47Z",
+      "sourcePipeline": 402,
+      "sourceRunId": 825977,
+      "components": {
+        "paas": null,
+        "iaas": null,
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
+      }
+    },
+    "STECCM13": {
+      "stack": "STECCM13",
+      "stackComponents": ["AKS"],
+      "aggregateStatus": "started",
+      "observedAt": "2026-09-09T09:31:25Z",
+      "sourcePipeline": 402,
+      "sourceRunId": 825735,
+      "components": {
+        "paas": null,
+        "iaas": null,
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
+      }
+    },
+    "STECCM14": {
+      "stack": "STECCM14",
+      "stackComponents": ["AKS"],
+      "aggregateStatus": "started",
+      "observedAt": "2026-09-08T12:04:33Z",
+      "sourcePipeline": 402,
+      "sourceRunId": 825690,
+      "components": {
+        "paas": null,
+        "iaas": null,
+        "aks": { "requested": true, "status": "started", "verified": true, "reason": "All requested AKS workloads ready" }
+      }
+    }
+  }
+}

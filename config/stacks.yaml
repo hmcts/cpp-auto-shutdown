@@ -1,0 +1,220 @@
+# Configuration — declared intent. Never written by the action pipelines.
+#
+# SAMPLE data illustrating the contract in docs/DESIGN.md.
+#
+# Every stack runs the baseline schedule: 06:00–19:00, weekdays only. There are
+# no permanent per-stack alterations — the always-on stacks that existed on the
+# EA Confluence page do not carry over. Any deviation is an exception with a
+# start and end date, so it expires and has to be re-justified.
+#
+# Configuration says when a stack SHOULD run; state/environments/*.json records
+# what live verification actually observed. The two are kept separate so intent
+# can never be mistaken for observation.
+
+defaults:
+  timezone: Europe/London
+  startup: "06:00"
+  shutdown: "19:00"
+  weekdays_only: true
+  # England & Wales — https://www.api.gov.uk/gds/bank-holidays/
+  bank_holidays_source: https://www.gov.uk/bank-holidays.json
+
+# The windows an exception request may ask for. A weekend or bank holiday is
+# covered by an exception whose date range includes that day.
+exception_windows:
+  - "06:00-19:00"   # baseline hours, used to run on a weekend or bank holiday
+  - "06:00-21:00"   # delay shutdown to 21:00
+  - "06:00-23:00"   # delay shutdown to 23:00
+  - "24h"           # run around the clock
+
+stacks:
+  - id: DEVCCM01
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Pankaj Verma
+    used_for: Release testing
+    urls:
+      - https://devccm01-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: Evening cover and automated API runs.
+
+  - id: DEVCCM02
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Pankaj Verma
+    used_for: Release testing
+    urls:
+      - https://devccm02-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: AE2e suite runs in the evening.
+
+  - id: DEVCCM03
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Ashish Sidhu
+    used_for: Prosecuting integration
+    urls:
+      - https://prosecuting.dev03.cjscp.org.uk/
+      - https://apigw.dev03.cjscp.org.uk/
+      - https://onlineplea.dev03.cjscp.org.uk/
+    notes: Internet facing.
+
+  - id: DEVCCM04
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Vipin Murali
+    used_for: Shared dev
+    urls:
+      - https://prosecuting.dev.cjscp.org.uk/
+      - https://apigw.dev.cjscp.org.uk/
+    notes: Internet facing.
+
+  - id: DEVCCM05
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Laxman Kerai
+    used_for: No.10 Case Readiness Dashboard
+    urls:
+      - https://devccm05-frontend.web01.dev.nl.cjscp.org.uk/
+      - https://prosecuting.dev05.cjscp.org.uk/
+    notes: Internet facing.
+
+  - id: DEVCCM06
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Gerard Fyson
+    used_for: Crown Court Scheduler UAT, S&L team
+    urls:
+      - https://devccm06-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: Reserved for S&L UAT.
+
+  - id: DEVCCM07
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Laxman Kerai
+    used_for: Resulting Assistant
+    urls:
+      - https://devccm07-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: Internet facing.
+
+  - id: DEVCCM08
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Varun Vijayagopal
+    used_for: Artemis upgrade testing
+    urls:
+      - https://devccm08-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: Shared with Laxman Kerai and Chirag Pareek.
+
+  - id: DEVCCM09
+    environment: dev
+    components: [AKS, IaaS, PaaS]
+    owner: Romina Ahmad
+    used_for: Case Admin B
+    urls:
+      - https://devccm09-frontend.web01.dev.nl.cjscp.org.uk/
+    notes: >-
+      Lent to the Release Improvement team. Deliberately absent from
+      state/environments/dev.json to illustrate the "Never checked" case.
+
+  - id: STECCM11
+    environment: ste
+    components: [AKS]
+    owner: Ashish Sidhu
+    used_for: Staging regression
+    urls: []
+    notes: ""
+
+  - id: STECCM12
+    environment: ste
+    components: [AKS]
+    owner: Gerard Fyson
+    used_for: Pre-release verification
+    urls: []
+    notes: ""
+
+  - id: STECCM13
+    environment: ste
+    components: [AKS]
+    owner: Romina Ahmad
+    used_for: Case Admin staging
+    urls: []
+    notes: Auto-suspend candidate — idle detection by pipeline 379.
+
+  - id: STECCM14
+    environment: ste
+    components: [AKS]
+    owner: Vipin Murali
+    used_for: Portal integration
+    urls: []
+    notes: ""
+
+# Every deviation from the baseline lives here, always dated. Automation reads
+# only applied configuration, so `applied: false` has no effect on the
+# scheduler — the dashboard surfaces that explicitly so a DM is not misled.
+#
+# HOUSEKEEPING NEEDED — this block grows without bound.
+# CNP prunes the equivalent file daily: .github/workflows/housekeeping_aks_issuejson.yaml
+# runs scripts/housekeeping.py, which drops every entry whose end date has passed
+# and commits the result. Do the same here, with two differences:
+#   - keep a grace period of about 30 days rather than deleting on expiry, so the
+#     board's "Finished" group and the calendar still show recent history;
+#   - edit with `yq` rather than a YAML load/dump, which would strip these comments.
+# Nothing is lost by pruning: Git history remains the full audit trail.
+# To be built alongside the issue-form write path.
+exceptions:
+  - request: 105
+    reference: CPP-4703
+    stacks: [DEVCCM08]
+    start: 2026-09-01
+    end: 2026-09-03
+    window: "24h"
+    requester: Varun Vijayagopal
+    approver: Laxman Kerai
+    applied: true
+    justification: Artemis upgrade testing — overnight soak run across three nights.
+
+  - request: 118
+    reference: CPP-4880
+    stacks: [DEVCCM01, DEVCCM02]
+    start: 2026-09-08
+    end: 2026-09-11
+    window: "06:00-23:00"
+    requester: Pankaj Verma
+    approver: auto
+    applied: true
+    justification: Release testing — AE2e suite needs the API available past 19:00.
+
+  # Covers a weekend: the date range includes Sat 12 and Sun 13 September.
+  - request: 112
+    reference: CPP-4821
+    stacks: [DEVCCM06]
+    start: 2026-09-11
+    end: 2026-09-13
+    window: "06:00-21:00"
+    requester: Gerard Fyson
+    approver: Ashish Sidhu
+    applied: true
+    justification: Crown Court Scheduler UAT with the S&L team, including weekend sessions.
+
+  # Illustrates "Not approved" — raised, no approver, not applied, no effect.
+  - request: 121
+    reference: CPP-4902
+    stacks: [DEVCCM09]
+    start: 2026-09-15
+    end: 2026-09-19
+    window: "24h"
+    requester: Romina Ahmad
+    approver: null
+    applied: false
+    justification: Case Admin B regression pack — five consecutive overnight runs.
+
+  # Illustrates "Approved, not applied" — approved, but never reached the schedule.
+  - request: 124
+    reference: CPP-4915
+    stacks: [STECCM13]
+    start: 2026-09-22
+    end: 2026-09-23
+    window: "06:00-23:00"
+    requester: Laxman Kerai
+    approver: Vipin Murali
+    applied: false
+    justification: No.10 Case Readiness Dashboard — demo prep and rehearsal.
