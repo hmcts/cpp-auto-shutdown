@@ -57,10 +57,10 @@ refreshed and when it last loaded. Never silently show stale data as if it were 
 
 Two files, joined on stack ID. The dashboard is read-only; it writes to neither.
 
-**config/stacks.yaml** — declared intent. Supplies: stack id, environment, stack components
-(Full AKS / AKS / IaaS / PaaS), owner (DM name), used-for, URLs, notes, baseline schedule and
-alterations, and exceptions (including requester, approver, date window, window preset,
-applied/merged status, Jira ref, issue number).
+**config/stacks.yaml** — declared intent. Supplies: stack id, environment, components
+(AKS / IaaS / PaaS), owner (DM name), used-for, URLs, notes — and the exceptions, each with
+requester, approver, date window, window preset, applied status, Jira ref and request number.
+It carries no schedule: every stack runs the baseline, and exceptions are the only deviation.
 
 **state/environments/<env>.json** — observed state. One record per stack, replaced in place,
 never appended. Per the observed-state design:
@@ -215,22 +215,34 @@ drift in exactly the case that matters most.
 
 ## 7. Exception lifecycle
 
-Four states, driven by whether the change has been approved and applied.
+Driven by whether the change is approved, whether it has been applied, and whether its dates
+have arrived.
 
-| State                   | Condition                          | Consequence shown                                               |
-|-------------------------|------------------------------------|-----------------------------------------------------------------|
-| Not approved            | not applied, no approver           | Won't apply — stack still shuts down. Needs approving before <date> |
-| Approved, not applied   | not applied, approver present      | Won't apply — stack still shuts down. Chase the platform team    |
-| Approved from <date>    | applied, window in the future      | —                                                                |
-| Active now              | applied, today inside window       | —                                                                |
-| Ended                   | window has passed                  | —                                                                |
+| State                   | Condition                                | Warning on the row                                          |
+|-------------------------|------------------------------------------|-------------------------------------------------------------|
+| Not approved            | not applied, no approver, window ahead   | Won't apply — stack still shuts down. Needs approving by <date> |
+| Not approved            | not applied, no approver, window open    | Window has opened and this is still not approved             |
+| Approved, pending apply | not applied, approver set, window ahead  | none                                                         |
+| Approved, not applied   | not applied, approver set, window open   | Window has opened but this is not in effect                  |
+| Approved from <date>    | applied, window in the future            | none                                                         |
+| Active now              | applied, today inside window             | none                                                         |
+| Ended                   | window has passed                        | none                                                         |
 
-The two blocked states are deliberately separate because they need different people:
-one needs an approver, the other is a platform failure after approval. Avoid the word
-"yet" — it implies progress that is not happening.
+**Approved and still ahead of its dates carries no warning.** The start and shutdown jobs
+apply it themselves, so it is a normal in-flight state with nothing for anyone to do. Marking
+it as a problem would train DMs to ignore the colour.
 
-Automation reads only applied/merged configuration, so an unapplied request has no effect.
-This is the one piece of pipeline mechanics a DM must understand, so it stays on the row.
+**The same state after the window opens is a problem**, because the stack is shutting down
+during a window someone approved. That is when it earns a warning — and note the two open-
+window states need different people: one needs an approver, the other has been approved and
+has still not taken effect.
+
+On the word "yet": it belongs only where something really is in motion. "Not applied to the
+schedule yet" is honest for a pending-apply request, because the jobs will pick it up.
+Anywhere a human has to act first it would imply progress that is not happening.
+
+Automation reads only applied configuration, so an unapplied request has no effect. That is
+the one piece of pipeline mechanics a DM has to understand, so it stays on the row.
 
 Calendar and Exceptions tab must derive their labels from the same function as the table so
 the three views cannot drift apart.

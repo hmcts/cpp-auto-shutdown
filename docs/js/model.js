@@ -127,24 +127,42 @@ export function exceptionStatus(exception, isLive, today, formatDate) {
     return { key: "ended", label: "Ended", warning: null, detail: null };
   }
   if (!exception.applied) {
-    const deadline = formatDate(exception.start);
     // "by" not "before": applying on the morning of the start date still works,
     // because what matters is the shutdown at the end of that day.
-    return exception.approver
-      ? {
-          key: "blocked", label: "Approved, not applied",
-          warning: `Won't apply — stack still shuts down. Chase the platform team by ${deadline}`,
-          detail: `Approved by ${exception.approver}, but the change has not reached the schedule. `
-                + `It is having no effect — the stack will still shut down at its usual time. `
-                + `Ask the platform team to apply it by ${deadline}.`
-        }
-      : {
-          key: "blocked", label: "Not approved",
-          warning: `Won't apply — stack still shuts down. Needs approving by ${deadline}`,
-          detail: `Not approved, so it has not been applied to the schedule. `
-                + `It is having no effect — the stack will still shut down at its usual time. `
-                + `It needs approving by ${deadline}.`
+    const deadline = formatDate(exception.start);
+    const windowOpen = exception.start <= today;
+
+    if (exception.approver) {
+      // Approved and still ahead of its dates: normal and already in motion, as
+      // the start/shutdown jobs apply it themselves. No action, so no warning.
+      if (!windowOpen) {
+        return {
+          key: "pending", label: "Approved, pending apply", warning: null,
+          detail: `Approved by ${exception.approver}. Not applied to the schedule yet, `
+                + `so it is having no effect.`
         };
+      }
+      // The window has opened and it still is not in effect. Now it is wrong.
+      return {
+        key: "blocked", label: "Approved, not applied",
+        warning: `Window has opened but this is not in effect — stack still shuts down`,
+        detail: `Approved by ${exception.approver}, but the change has not reached the schedule `
+              + `and the window opened on ${deadline}. The stack is still shutting down at its `
+              + `usual time.`
+      };
+    }
+
+    return {
+      key: "blocked", label: "Not approved",
+      warning: windowOpen
+        ? `Window has opened and this is still not approved — stack shuts down as normal`
+        : `Won't apply — stack still shuts down. Needs approving by ${deadline}`,
+      detail: windowOpen
+        ? `Not approved, so it was never applied to the schedule, and the window opened on `
+          + `${deadline}. The stack is shutting down at its usual time.`
+        : `Not approved, so it has not been applied to the schedule. It is having no effect — `
+          + `the stack will still shut down at its usual time. It needs approving by ${deadline}.`
+    };
   }
   if (isLive) {
     return { key: "live", label: "Active now", warning: null, detail: null };

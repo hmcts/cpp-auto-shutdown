@@ -194,23 +194,41 @@ test("unapplied with no approver reads 'Not approved' and warns", () => {
   assert.match(status.detail, /It needs approving by 15 Sep\./);
 });
 
-test("unapplied WITH an approver points at the platform team instead", () => {
+/* Approved and still ahead of its dates is normal: the start/shutdown jobs apply
+ * it themselves, so there is nothing for anyone to do and nothing to warn about. */
+test("approved but not applied, window ahead, is calm and carries no warning", () => {
   const status = exceptionStatus(exception({ approver: "Someone" }), false, TODAY, formatDate);
-  assert.equal(status.label, "Approved, not applied");
-  assert.match(status.warning, /Chase the platform team/);
+  assert.equal(status.label, "Approved, pending apply");
+  assert.equal(status.warning, null);
   assert.match(status.detail, /Approved by Someone/);
-  assert.match(status.detail, /Ask the platform team to apply it by 15 Sep\./);
+  assert.match(status.detail, /having no effect/);
+  assert.doesNotMatch(status.detail, /platform team/);
 });
 
-/* "yet" implies the change is on its way. Nothing moves without someone acting,
- * so neither blocked state may use it. */
-test("blocked wording never says 'yet' and always names an action", () => {
-  for (const approver of [null, "Someone"]) {
-    const status = exceptionStatus(exception({ approver }), false, TODAY, formatDate);
-    assert.doesNotMatch(status.detail, /\byet\b/);
-    assert.doesNotMatch(status.warning, /\byet\b/);
-    assert.match(status.detail, /still shut down at its usual time/);
-  }
+/* Once the dates arrive and it still is not in effect, it stops being normal. */
+test("approved but not applied AFTER the window opens is a problem", () => {
+  const open = exception({ approver: "Someone", start: "2026-09-08", end: "2026-09-12" });
+  const status = exceptionStatus(open, false, TODAY, formatDate);
+  assert.equal(status.label, "Approved, not applied");
+  assert.match(status.warning, /Window has opened/);
+  assert.match(status.detail, /still shutting down at its usual time/);
+});
+
+test("not approved after the window opens says so plainly", () => {
+  const open = exception({ start: "2026-09-08", end: "2026-09-12" });
+  const status = exceptionStatus(open, false, TODAY, formatDate);
+  assert.equal(status.label, "Not approved");
+  assert.match(status.warning, /Window has opened and this is still not approved/);
+});
+
+/* "yet" implies the change is on its way. That is true only where automation is
+ * about to act; anywhere a human must act first it would mislead. */
+test("wording only says 'yet' where something really is in motion", () => {
+  const pending = exceptionStatus(exception({ approver: "Someone" }), false, TODAY, formatDate);
+  assert.match(pending.detail, /\byet\b/, "automation will apply it, so 'yet' is honest here");
+
+  const needsApproval = exceptionStatus(exception(), false, TODAY, formatDate);
+  assert.doesNotMatch(needsApproval.detail, /\byet\b/, "nothing moves without an approver");
 });
 
 test("states that need no action carry no detail", () => {
