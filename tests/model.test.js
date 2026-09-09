@@ -190,13 +190,35 @@ test("unapplied with no approver reads 'Not approved' and warns", () => {
   const status = exceptionStatus(exception(), false, TODAY, formatDate);
   assert.equal(status.label, "Not approved");
   assert.match(status.warning, /still shuts down/);
-  assert.match(status.warning, /Needs approving before 15 Sep/);
+  assert.match(status.warning, /Needs approving by 15 Sep/);
+  assert.match(status.detail, /It needs approving by 15 Sep\./);
 });
 
 test("unapplied WITH an approver points at the platform team instead", () => {
   const status = exceptionStatus(exception({ approver: "Someone" }), false, TODAY, formatDate);
   assert.equal(status.label, "Approved, not applied");
   assert.match(status.warning, /Chase the platform team/);
+  assert.match(status.detail, /Approved by Someone/);
+  assert.match(status.detail, /Ask the platform team to apply it by 15 Sep\./);
+});
+
+/* "yet" implies the change is on its way. Nothing moves without someone acting,
+ * so neither blocked state may use it. */
+test("blocked wording never says 'yet' and always names an action", () => {
+  for (const approver of [null, "Someone"]) {
+    const status = exceptionStatus(exception({ approver }), false, TODAY, formatDate);
+    assert.doesNotMatch(status.detail, /\byet\b/);
+    assert.doesNotMatch(status.warning, /\byet\b/);
+    assert.match(status.detail, /still shut down at its usual time/);
+  }
+});
+
+test("states that need no action carry no detail", () => {
+  const applied = exception({ applied: true, approver: "Someone" });
+  assert.equal(exceptionStatus(applied, true, TODAY, formatDate).detail, null);
+  assert.equal(exceptionStatus(applied, false, TODAY, formatDate).detail, null);
+  assert.equal(exceptionStatus({ ...applied, start: "2026-09-01", end: "2026-09-03" },
+    false, TODAY, formatDate).detail, null);
 });
 
 test("applied and inside the window reads 'Active now'", () => {

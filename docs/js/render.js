@@ -218,12 +218,7 @@ export function renderExceptions(exceptions, today) {
           <div class="stacks">${e.stacks.map(s => `<code>${esc(s)}</code>`).join("")}</div>
           <p class="why">${esc(e.justification)}</p>
           <div class="who">Requested by ${esc(e.requester)} &middot; ${esc(approval)}</div>
-          ${e.applied ? "" : `<p class="warn-line">&#9888; ${esc(
-            e.approver
-              ? `Approved by ${e.approver}, but not yet applied to the schedule.`
-              : "Not approved, so it has not been applied to the schedule.")}
-            It is having no effect &mdash; the environment will still shut down at its usual
-            time, and it needs to be in place before ${esc(formatDate(e.start))}.</p>`}
+          ${status.detail ? `<p class="warn-line">&#9888; ${esc(status.detail)}</p>` : ""}
         </div>
         <div class="right">
           <span class="pill ${status.key === "live" ? "effect" : status.key === "ended" ? "expired" : "notmerged"}">${esc(status.label)}</span>

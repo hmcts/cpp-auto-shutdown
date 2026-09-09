@@ -124,24 +124,32 @@ export function exceptionStatus(exception, isLive, today, formatDate) {
   if (!exception) return null;
 
   if (exception.end < today) {
-    return { key: "ended", label: "Ended", warning: null };
+    return { key: "ended", label: "Ended", warning: null, detail: null };
   }
   if (!exception.applied) {
     const deadline = formatDate(exception.start);
+    // "by" not "before": applying on the morning of the start date still works,
+    // because what matters is the shutdown at the end of that day.
     return exception.approver
       ? {
           key: "blocked", label: "Approved, not applied",
-          warning: `Won't apply — stack still shuts down. Chase the platform team before ${deadline}`
+          warning: `Won't apply — stack still shuts down. Chase the platform team by ${deadline}`,
+          detail: `Approved by ${exception.approver}, but the change has not reached the schedule. `
+                + `It is having no effect — the stack will still shut down at its usual time. `
+                + `Ask the platform team to apply it by ${deadline}.`
         }
       : {
           key: "blocked", label: "Not approved",
-          warning: `Won't apply — stack still shuts down. Needs approving before ${deadline}`
+          warning: `Won't apply — stack still shuts down. Needs approving by ${deadline}`,
+          detail: `Not approved, so it has not been applied to the schedule. `
+                + `It is having no effect — the stack will still shut down at its usual time. `
+                + `It needs approving by ${deadline}.`
         };
   }
   if (isLive) {
-    return { key: "live", label: "Active now", warning: null };
+    return { key: "live", label: "Active now", warning: null, detail: null };
   }
-  return { key: "live", label: `Approved from ${formatDate(exception.start)}`, warning: null };
+  return { key: "live", label: `Approved from ${formatDate(exception.start)}`, warning: null, detail: null };
 }
 
 /** State pill wording. `partial` is not "unknown" — it is known, and wrong. */
