@@ -33,16 +33,6 @@ function shutdownCell(schedule, observed) {
   return pair(esc(schedule.stop), `today${q ? ` &middot; ${q}` : ""}`);
 }
 
-function componentLine(record) {
-  const parts = componentReadings(record);
-  if (parts.length < 2) return "";
-  const rendered = parts.map(p => {
-    const cls = !p.verified ? "no" : p.status === "started" ? "ok" : "";
-    return `<b>${esc(p.label)}</b> <span class="${cls}">${esc(p.word)}</span>`;
-  });
-  return `<span class="cstate">${rendered.join('<span class="sep">·</span>')}</span>`;
-}
-
 export function renderBoard(rows, today) {
   const body = $("#tbody");
 
@@ -102,7 +92,6 @@ export function renderBoard(rows, today) {
       <td class="use">${esc(stack.use)}</td>
       <td>
         <span class="pill ${esc(row.observed)}">${esc(stateLabel(row.observed))}</span>
-        ${componentLine(record)}
         ${row.drift ? `<span class="flag">Not what the schedule says &mdash; ask the platform team</span>` : ""}
         ${!row.drift && row.stale && record ? `<span class="flag">Last checked ${esc(formatAge(row.age))} &mdash; expected updates have not arrived</span>` : ""}
         ${!record ? `<span class="flag">Never checked</span>` : ""}

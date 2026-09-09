@@ -115,11 +115,6 @@ tr.attn td.first{--sc:var(--warn)}
    or unverified. Only components the stack actually has are rendered. */
 .comp{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.04em;border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-3);background:var(--surface-2)}
 .comp.on{color:var(--up);border-color:color-mix(in srgb,var(--up) 35%,transparent);background:var(--up-soft)}
-.cstate{display:block;margin-top:5px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap}
-.cstate b{font-weight:500}
-.cstate .ok{color:var(--up)}
-.cstate .no{color:var(--warn)}
-.cstate .sep{color:var(--ink-3);padding:0 4px}
 
 .stack-id{font-family:var(--mono);font-size:13.5px;font-weight:500}
 .disclose{appearance:none;background:none;border:0;cursor:pointer;color:var(--ink-3);font-family:var(--sans);font-size:11.5px;display:inline-flex;align-items:center;gap:4px;padding:2px 0;margin-top:3px}
