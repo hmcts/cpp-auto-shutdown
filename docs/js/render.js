@@ -58,13 +58,19 @@ export function renderBoard(rows, today) {
          <a href="${ISSUES}/${encodeURIComponent(row.exception.issue)}" class="reqlink">Request #${esc(row.exception.issue)}</a>`
       : `<span class="muted">None</span>`;
 
-    // Only the components this stack actually has. Rendering all three and
-    // greying out the absent ones just puts IaaS and PaaS on every STE row,
-    // where nothing but AKS exists.
+    // A chip per component the stack actually has — so an STE stack shows AKS
+    // alone, never a greyed-out IaaS and PaaS it will never have. Each chip is
+    // then lit according to whether that component is currently up, so the row
+    // shows at a glance which part of a stack is missing.
+    const componentState = new Map(componentReadings(record).map(p => [p.label, p.word]));
     const chips = COMPONENTS
       .map(key => COMPONENT_LABELS[key])
       .filter(label => stack.components.includes(label))
-      .map(label => `<span class="comp on">${esc(label)}</span>`)
+      .map(label => {
+        const word = componentState.get(label);
+        const title = word ? `${label} ${word}` : `${label} — not known`;
+        return `<span class="comp${word === "up" ? " on" : ""}" title="${esc(title)}">${esc(label)}</span>`;
+      })
       .join("");
 
     const urls = stack.urls.length

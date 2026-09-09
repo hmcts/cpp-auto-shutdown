@@ -111,8 +111,10 @@ tr.unknown td.first{--sc:var(--ink-3)}
 tr.attn td.first{--sc:var(--warn)}
 
 .comps{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
-.comp{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.04em;border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-3)}
-.comp.on{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent);background:var(--accent-soft)}
+/* Component chips carry state: lit means that component is up, dim means down
+   or unverified. Only components the stack actually has are rendered. */
+.comp{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.04em;border:1px solid var(--line);border-radius:2px;padding:1px 4px;color:var(--ink-3);background:var(--surface-2)}
+.comp.on{color:var(--up);border-color:color-mix(in srgb,var(--up) 35%,transparent);background:var(--up-soft)}
 .cstate{display:block;margin-top:5px;font-family:var(--mono);font-size:11.5px;color:var(--ink-2);white-space:nowrap}
 .cstate b{font-weight:500}
 .cstate .ok{color:var(--up)}
