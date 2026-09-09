@@ -3,9 +3,22 @@
 Design output for the dashboard build story.
 
 In this repo:
-- `docs/index.html` — working reference page, rendering the bundled sample data
+- `docs/index.html` — the page (markup only)
+- `docs/styles.css` — design system
+- `docs/js/` — ES modules, no bundler and no framework:
+  - `time.js` Europe/London clock helpers
+  - `schedule.js` schedule resolution — pure, unit tested
+  - `model.js` config/state join, staleness, drift, exception lifecycle — pure, unit tested
+  - `data.js` fetching and normalising both files
+  - `dom.js` escaping helpers
+  - `render.js` DOM output
+  - `main.js` wiring
+- `tests/` — `npm test` (node's built-in runner, no dependencies)
 - `config/stacks.yaml` — sample configuration (declared intent)
 - `state/environments/dev.json`, `ste.json` — sample observed state
+
+Run locally with `npm run serve` and open http://localhost:8000.
+Add `?ref=BRANCH` to read data from a branch before it is merged.
 
 Interactive versions of the same design:
 - v1, as specified here: https://claude.ai/code/artifact/b117d1e8-8dab-4afc-9d93-457a21c6fb62
@@ -35,8 +48,13 @@ server-side merge, no generated `data.json`, and no rebuild when state changes:
 - Pages redeploy is only needed when the HTML/JS itself changes.
 - Freshness ceiling is ~5 min (CDN), but the state file itself only changes every 30–60 min
   (379 every 30 min, 416 hourly), so this is as fresh as the data ever gets.
-- `config/stacks.yaml` is YAML — either load `js-yaml` from cdnjs, or have CI emit a JSON twin.
-  DECISION NEEDED, see §9.
+- `config/stacks.yaml` is YAML, parsed in the browser with `js-yaml` 4.1.0 from cdnjs.
+  DECIDED: YAML stays, because config is the file humans read and review in PRs, and it
+  carries explanatory comments that JSON cannot. Note that js-yaml turns an unquoted
+  `2026-09-08` into a `Date`; `toIsoDate()` normalises it.
+- Bank holidays come from `https://www.gov.uk/bank-holidays.json` (england-and-wales), which
+  sends `access-control-allow-origin: *`. If it is unavailable the board carries on and simply
+  treats the day as an ordinary weekday.
 
 On fetch failure: keep the last good render, show a banner stating the data could not be
 refreshed and when it last loaded. Never silently show stale data as if it were current.
@@ -175,9 +193,8 @@ the three views cannot drift apart.
 ## 10. Open decisions
 
 Blocking:
-- Repo name and Pages visibility (assumed public — see security note below).
-- Config format for the browser: parse YAML client-side with js-yaml, or CI emits JSON.
-- Stale threshold: 4h is a guess; should follow actual run cadence.
+- Stale threshold: `STALE_HOURS` in `docs/js/model.js` is 4, which is a guess; it should
+  follow the actual run cadence.
 - `aggregateStatus` rules for mixed outcomes — flagged NEEDS DECISION in the state design;
   this decides when a stack reads "Partly up".
 - Tombstone vs delete after pipeline 167 cleanup — decides orphan handling.
@@ -209,3 +226,7 @@ shape has no owner field.
 - [ ] Data refreshes without a redeploy; failed fetch keeps last good render and warns
 - [ ] Works on a laptop screen without horizontal page scroll; light and dark themes
 - [ ] No secrets or tokens in client-side code
+- [ ] All user-written text (owner, used_for, notes, justification) is HTML-escaped before
+      it reaches the DOM — these fields originate in issue forms
+- [ ] Tabs follow the APG tablist pattern: arrow keys, Home/End, roving tabindex
+- [ ] Schedule rules covered by unit tests, including BST boundaries

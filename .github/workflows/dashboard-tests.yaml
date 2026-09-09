@@ -1,0 +1,47 @@
+name: Dashboard tests
+
+# The schedule rules decide whether an environment is up during a release, so
+# they are unit tested. No dependencies to install — node's built-in runner.
+
+on:
+  push:
+    paths:
+      - 'docs/js/**'
+      - 'tests/**'
+      - 'package.json'
+      - '.github/workflows/dashboard-tests.yaml'
+  pull_request:
+    paths:
+      - 'docs/js/**'
+      - 'tests/**'
+      - 'package.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run tests
+        run: npm test
+
+      - name: Validate sample data parses
+        run: |
+          node -e "
+            const fs = require('fs');
+            for (const f of ['state/environments/dev.json','state/environments/ste.json']) {
+              const doc = JSON.parse(fs.readFileSync(f, 'utf8'));
+              if (!doc.stacks) throw new Error(f + ' has no stacks key');
+              console.log(f, Object.keys(doc.stacks).length, 'stacks');
+            }
+          "
