@@ -58,11 +58,14 @@ export function renderBoard(rows, today) {
          <a href="${ISSUES}/${encodeURIComponent(row.exception.issue)}" class="reqlink">Request #${esc(row.exception.issue)}</a>`
       : `<span class="muted">None</span>`;
 
-    const chips = COMPONENTS.map(key => {
-      const label = COMPONENT_LABELS[key];
-      const on = stack.components.includes(label);
-      return `<span class="comp${on ? " on" : ""}">${esc(label)}</span>`;
-    }).join("");
+    // Only the components this stack actually has. Rendering all three and
+    // greying out the absent ones just puts IaaS and PaaS on every STE row,
+    // where nothing but AKS exists.
+    const chips = COMPONENTS
+      .map(key => COMPONENT_LABELS[key])
+      .filter(label => stack.components.includes(label))
+      .map(label => `<span class="comp on">${esc(label)}</span>`)
+      .join("");
 
     const urls = stack.urls.length
       ? stack.urls.map(u => `<li>${u.role ? `<span class="url-role">${esc(u.role)}</span>` : ""}<a href="${safeUrl(u.url)}">${esc(String(u.url).replace(/^https:\/\//, ""))}</a></li>`).join("")
