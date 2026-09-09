@@ -1,28 +1,31 @@
-# Configuration — declared intent. Never written by pipelines.
+# Configuration — declared intent. Never written by the action pipelines.
 #
-# This is SAMPLE data illustrating the contract described in docs/DESIGN.md.
+# SAMPLE data illustrating the contract in docs/DESIGN.md.
+#
+# Every stack runs the baseline schedule: 06:00–19:00, weekdays only. There are
+# no permanent per-stack alterations — the always-on stacks that existed on the
+# EA Confluence page do not carry over. Any deviation is an exception with a
+# start and end date, so it expires and has to be re-justified.
+#
 # Configuration says when a stack SHOULD run; state/environments/*.json records
-# what live verification actually observed. The two are kept separate so that
-# intent can never be mistaken for observation.
+# what live verification actually observed. The two are kept separate so intent
+# can never be mistaken for observation.
 
 defaults:
   timezone: Europe/London
   startup: "06:00"
   shutdown: "19:00"
+  weekdays_only: true
   # England & Wales — https://www.api.gov.uk/gds/bank-holidays/
   bank_holidays_source: https://www.gov.uk/bank-holidays.json
 
-# Alterations a request may select. Anything outside these needs approval.
-presets:
-  shutdown_delay:
-    - "21:00"
-    - "23:00"
-    - "24h"
-  weekend:
-    - "06:00-19:00"
-    - "06:00-21:00"
-    - "06:00-23:00"
-    - "24h"
+# The windows an exception request may ask for. A weekend or bank holiday is
+# covered by an exception whose date range includes that day.
+exception_windows:
+  - "06:00-19:00"   # baseline hours, used to run on a weekend or bank holiday
+  - "06:00-21:00"   # delay shutdown to 21:00
+  - "06:00-23:00"   # delay shutdown to 23:00
+  - "24h"           # run around the clock
 
 stacks:
   - id: DEVCCM01
@@ -30,10 +33,6 @@ stacks:
     components: [AKS]
     owner: Pankaj Verma
     used_for: Release testing
-    schedule:
-      shutdown: "23:00"
-      weekend: null
-      bank_holiday: false
     urls:
       - https://devccm01-frontend.web01.dev.nl.cjscp.org.uk/
     notes: Evening cover and automated API runs.
@@ -43,10 +42,6 @@ stacks:
     components: [AKS]
     owner: Pankaj Verma
     used_for: Release testing
-    schedule:
-      shutdown: "23:00"
-      weekend: null
-      bank_holiday: false
     urls:
       - https://devccm02-frontend.web01.dev.nl.cjscp.org.uk/
     notes: AE2e suite runs in the evening.
@@ -56,10 +51,6 @@ stacks:
     components: [AKS, IaaS]
     owner: Ashish Sidhu
     used_for: Prosecuting integration
-    schedule:
-      shutdown: "24h"
-      weekend: "24h"
-      bank_holiday: true
     urls:
       - https://prosecuting.dev03.cjscp.org.uk/
       - https://apigw.dev03.cjscp.org.uk/
@@ -71,24 +62,16 @@ stacks:
     components: [AKS]
     owner: Vipin Murali
     used_for: Shared dev
-    schedule:
-      shutdown: null
-      weekend: null
-      bank_holiday: false
     urls:
       - https://prosecuting.dev.cjscp.org.uk/
       - https://apigw.dev.cjscp.org.uk/
-    notes: Internet facing. Baseline schedule, no alteration.
+    notes: Internet facing.
 
   - id: DEVCCM05
     environment: dev
     components: [AKS, PaaS]
     owner: Laxman Kerai
     used_for: No.10 Case Readiness Dashboard
-    schedule:
-      shutdown: "23:00"
-      weekend: "06:00-19:00"
-      bank_holiday: false
     urls:
       - https://devccm05-frontend.web01.dev.nl.cjscp.org.uk/
       - https://prosecuting.dev05.cjscp.org.uk/
@@ -99,10 +82,6 @@ stacks:
     components: [AKS]
     owner: Gerard Fyson
     used_for: Crown Court Scheduler UAT, S&L team
-    schedule:
-      shutdown: "21:00"
-      weekend: null
-      bank_holiday: false
     urls:
       - https://devccm06-frontend.web01.dev.nl.cjscp.org.uk/
     notes: Reserved for S&L UAT.
@@ -112,10 +91,6 @@ stacks:
     components: [AKS, IaaS, PaaS]
     owner: Laxman Kerai
     used_for: Resulting Assistant
-    schedule:
-      shutdown: "23:00"
-      weekend: "06:00-23:00"
-      bank_holiday: false
     urls:
       - https://devccm07-frontend.web01.dev.nl.cjscp.org.uk/
     notes: Internet facing.
@@ -125,10 +100,6 @@ stacks:
     components: [AKS]
     owner: Varun Vijayagopal
     used_for: Artemis upgrade testing
-    schedule:
-      shutdown: "21:00"
-      weekend: null
-      bank_holiday: false
     urls:
       - https://devccm08-frontend.web01.dev.nl.cjscp.org.uk/
     notes: Shared with Laxman Kerai and Chirag Pareek.
@@ -138,10 +109,6 @@ stacks:
     components: [AKS]
     owner: Romina Ahmad
     used_for: Case Admin B
-    schedule:
-      shutdown: "21:00"
-      weekend: null
-      bank_holiday: false
     urls:
       - https://devccm09-frontend.web01.dev.nl.cjscp.org.uk/
     notes: >-
@@ -153,10 +120,6 @@ stacks:
     components: [AKS]
     owner: Ashish Sidhu
     used_for: Staging regression
-    schedule:
-      shutdown: null
-      weekend: null
-      bank_holiday: false
     urls: []
     notes: ""
 
@@ -165,10 +128,6 @@ stacks:
     components: [AKS, PaaS]
     owner: Gerard Fyson
     used_for: Pre-release verification
-    schedule:
-      shutdown: "21:00"
-      weekend: null
-      bank_holiday: false
     urls: []
     notes: ""
 
@@ -177,10 +136,6 @@ stacks:
     components: [AKS]
     owner: Romina Ahmad
     used_for: Case Admin staging
-    schedule:
-      shutdown: null
-      weekend: null
-      bank_holiday: false
     urls: []
     notes: Auto-suspend candidate — idle detection by pipeline 379.
 
@@ -189,16 +144,12 @@ stacks:
     components: [AKS, IaaS]
     owner: Vipin Murali
     used_for: Portal integration
-    schedule:
-      shutdown: "23:00"
-      weekend: "06:00-19:00"
-      bank_holiday: false
     urls: []
     notes: ""
 
-# Exceptions are configuration, not state. Automation reads only merged
-# configuration, so `applied: false` has no effect on the scheduler — the
-# dashboard surfaces that explicitly so a DM is not misled.
+# Every deviation from the baseline lives here, always dated. Automation reads
+# only applied configuration, so `applied: false` has no effect on the
+# scheduler — the dashboard surfaces that explicitly so a DM is not misled.
 exceptions:
   - request: 105
     reference: CPP-4703
@@ -215,23 +166,24 @@ exceptions:
     reference: CPP-4880
     stacks: [DEVCCM01, DEVCCM02]
     start: 2026-09-08
-    end: 2026-09-09
-    window: "24h"
+    end: 2026-09-11
+    window: "06:00-23:00"
     requester: Pankaj Verma
     approver: auto
     applied: true
-    justification: Release testing — AE2e suite needs the API available past 23:00.
+    justification: Release testing — AE2e suite needs the API available past 19:00.
 
+  # Covers a weekend: the date range includes Sat 12 and Sun 13 September.
   - request: 112
     reference: CPP-4821
     stacks: [DEVCCM06]
-    start: 2026-09-10
-    end: 2026-09-12
-    window: "06:00-23:00"
+    start: 2026-09-11
+    end: 2026-09-13
+    window: "06:00-21:00"
     requester: Gerard Fyson
     approver: Ashish Sidhu
     applied: true
-    justification: Crown Court Scheduler UAT with the S&L team; sessions run to 21:30.
+    justification: Crown Court Scheduler UAT with the S&L team, including weekend sessions.
 
   # Illustrates "Not approved" — raised, no approver, not applied, no effect.
   - request: 121
@@ -245,6 +197,7 @@ exceptions:
     applied: false
     justification: Case Admin B regression pack — five consecutive overnight runs.
 
+  # Illustrates "Approved, not applied" — approved, but never reached the schedule.
   - request: 124
     reference: CPP-4915
     stacks: [STECCM13]
@@ -253,5 +206,5 @@ exceptions:
     window: "06:00-23:00"
     requester: Laxman Kerai
     approver: Vipin Murali
-    applied: true
+    applied: false
     justification: No.10 Case Readiness Dashboard — demo prep and rehearsal.

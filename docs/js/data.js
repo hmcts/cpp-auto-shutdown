@@ -28,18 +28,15 @@ async function getText(url) {
 
 /* ---- config/stacks.yaml -------------------------------------------------- */
 
-/** Normalise a YAML stack entry into the shape the renderer uses. */
+/* Normalise a YAML stack entry. Config carries identity and ownership only —
+ * schedule alterations live in exceptions, never on the stack. */
 function normaliseStack(raw) {
-  const schedule = raw.schedule || {};
   return {
     id: raw.id,
     env: String(raw.environment || "").toUpperCase(),
     components: raw.components || [],
     owner: raw.owner || "",
     use: raw.used_for || "",
-    stop: schedule.shutdown || null,
-    weekend: schedule.weekend || null,
-    bankHoliday: Boolean(schedule.bank_holiday),
     // urls may be plain strings, or {role, url} pairs
     urls: (raw.urls || []).map(u =>
       typeof u === "string" ? { role: "", url: u } : { role: u.role || "", url: u.url }),

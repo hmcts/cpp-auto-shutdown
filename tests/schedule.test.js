@@ -6,8 +6,13 @@ import {
 } from "../docs/js/schedule.js";
 import { londonClock, toMinutes, isWeekend, toIsoDate } from "../docs/js/time.js";
 
-const stack = (over = {}) => ({ id: "DEVCCM01", stop: null, weekend: null, ...over });
+/* Config carries no schedule: every stack runs the baseline and only an applied
+ * exception changes it. */
+const stack = (over = {}) => ({ id: "DEVCCM01", ...over });
 const at = hhmm => toMinutes(hhmm);
+const exception = (over = {}) => ([{
+  stacks: ["DEVCCM01"], start: WEEKDAY, end: WEEKDAY, window: "24h", applied: true, ...over
+}]);
 
 const WEEKDAY = "2026-09-09";   // Wednesday
 const SATURDAY = "2026-09-12";
@@ -30,36 +35,16 @@ test("baseline boundaries are inclusive of start, exclusive of stop", () => {
   assert.equal(resolveSchedule(stack(), ctx(WEEKDAY, BASELINE_STOP)).status, "stopped");
 });
 
-test("delayed shutdown keeps the stack up past baseline", () => {
-  const s = stack({ stop: "23:00" });
-  const result = resolveSchedule(s, ctx(WEEKDAY, "22:00"));
-  assert.equal(result.status, "started");
-  assert.equal(result.stop, "23:00");
-  assert.equal(result.kind, "extended");
-  assert.equal(resolveSchedule(s, ctx(WEEKDAY, "23:30")).status, "stopped");
+test("every stack runs the same baseline — config carries no schedule", () => {
+  const result = resolveSchedule(stack(), ctx(WEEKDAY, "10:00"));
+  assert.equal(result.kind, "baseline");
+  assert.equal(result.start, BASELINE_START);
+  assert.equal(result.stop, BASELINE_STOP);
 });
 
-test("24h stacks never shut down and report no stop time", () => {
-  const result = resolveSchedule(stack({ stop: "24h" }), ctx(WEEKDAY, "03:00"));
-  assert.equal(result.status, "started");
-  assert.equal(result.stop, null);
-  assert.equal(result.kind, "allDay");
-});
-
-test("weekend: stopped unless the stack opts in", () => {
+test("weekends are never scheduled without an exception", () => {
   assert.equal(resolveSchedule(stack(), ctx(SATURDAY, "10:00")).kind, "weekendOff");
   assert.equal(resolveSchedule(stack(), ctx(SUNDAY, "10:00")).status, "stopped");
-
-  const opted = stack({ weekend: "06:00-19:00" });
-  assert.equal(resolveSchedule(opted, ctx(SATURDAY, "10:00")).status, "started");
-  assert.equal(resolveSchedule(opted, ctx(SATURDAY, "20:00")).status, "stopped");
-});
-
-test("weekend preset overrides the weekday delay", () => {
-  // Weekday delay is 23:00 but the weekend preset ends at 19:00.
-  const s = stack({ stop: "23:00", weekend: "06:00-19:00" });
-  assert.equal(resolveSchedule(s, ctx(SATURDAY, "21:00")).status, "stopped");
-  assert.equal(resolveSchedule(s, ctx(WEEKDAY, "21:00")).status, "started");
 });
 
 test("bank holiday suppresses startup and names the holiday", () => {
@@ -69,35 +54,44 @@ test("bank holiday suppresses startup and names the holiday", () => {
   assert.equal(result.detail, "Summer bank holiday");
 });
 
-test("bank holiday is overridden by a weekend preset", () => {
-  const s = stack({ weekend: "06:00-19:00" });
-  assert.equal(resolveSchedule(s, ctx(BANK_HOLIDAY, "10:00")).status, "started");
+test("an exception delays the shutdown for its dates only", () => {
+  const exceptions = exception({ window: "06:00-23:00" });
+  const during = resolveSchedule(stack(), ctx(WEEKDAY, "22:00", { exceptions }));
+  assert.equal(during.status, "started");
+  assert.equal(during.stop, "23:00");
+  assert.equal(during.kind, "exception");
+
+  // Past the exception's own window, and on a day it does not cover.
+  assert.equal(resolveSchedule(stack(), ctx(WEEKDAY, "23:30", { exceptions })).status, "stopped");
+  assert.equal(resolveSchedule(stack(), ctx("2026-09-10", "22:00", { exceptions })).kind, "baseline");
 });
 
-test("an applied exception outranks bank holiday and weekend", () => {
-  const exceptions = [{
-    stacks: ["DEVCCM01"], start: BANK_HOLIDAY, end: BANK_HOLIDAY,
-    window: "24h", applied: true
-  }];
+test("a 24h exception reports no stop time", () => {
+  const result = resolveSchedule(stack(), ctx(WEEKDAY, "03:00", { exceptions: exception() }));
+  assert.equal(result.status, "started");
+  assert.equal(result.stop, null);
+  assert.equal(result.kind, "exception");
+});
+
+test("weekend running is just an exception covering those dates", () => {
+  const exceptions = exception({ start: SATURDAY, end: SUNDAY, window: "06:00-19:00" });
+  assert.equal(resolveSchedule(stack(), ctx(SATURDAY, "10:00", { exceptions })).status, "started");
+  assert.equal(resolveSchedule(stack(), ctx(SATURDAY, "20:00", { exceptions })).status, "stopped");
+  assert.equal(resolveSchedule(stack(), ctx(SUNDAY, "10:00", { exceptions })).status, "started");
+});
+
+test("an applied exception outranks a bank holiday", () => {
+  const exceptions = exception({ start: BANK_HOLIDAY, end: BANK_HOLIDAY });
   const result = resolveSchedule(stack(), ctx(BANK_HOLIDAY, "23:00", { exceptions }));
   assert.equal(result.status, "started");
   assert.equal(result.kind, "exception");
 });
 
 test("an UNAPPLIED exception changes nothing", () => {
-  const exceptions = [{
-    stacks: ["DEVCCM01"], start: WEEKDAY, end: WEEKDAY, window: "24h", applied: false
-  }];
+  const exceptions = exception({ applied: false });
   const result = resolveSchedule(stack(), ctx(WEEKDAY, "23:00", { exceptions }));
   assert.equal(result.status, "stopped");
-  assert.notEqual(result.kind, "exception");
-});
-
-test("exception with a bounded window applies its own stop time", () => {
-  const exceptions = [{
-    stacks: ["DEVCCM01"], start: WEEKDAY, end: WEEKDAY, window: "06:00-23:00", applied: true
-  }];
-  assert.equal(resolveSchedule(stack(), ctx(WEEKDAY, "10:00", { exceptions })).stop, "23:00");
+  assert.equal(result.kind, "baseline");
 });
 
 test("exceptionFor respects the date window and applied flag", () => {

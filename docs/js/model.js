@@ -28,8 +28,16 @@ import { resolveSchedule, exceptionFor, nextExceptionFor, dueTransitions } from 
  * self-heal. Two missed transitions means it has not self-healed, which is the
  * thing only this board can say. */
 
-/* Backstop for stacks that never transition (the 24h ones), which no
- * transition-based rule can judge. 72h clears a bank holiday weekend. */
+/* Backstop for stacks with no transitions to count — one under a long 24h
+ * exception, or too newly added to have two behind it. Nothing acts on such a
+ * stack, so nothing observes it either, and its record would otherwise age
+ * forever unnoticed. 72h says: three days with no verification at all means we
+ * have lost sight of it.
+ *
+ * This deliberately does NOT apply to stacks that do transition. A legitimate
+ * Friday-to-Tuesday gap over a bank holiday runs to about 83 hours, so applying
+ * an age cap there would flag healthy stacks every long weekend — which is the
+ * whole reason the primary rule counts transitions instead of hours. */
 export const MAX_OBSERVATION_AGE_HOURS = 72;
 
 export const COMPONENTS = ["aks", "iaas", "paas"];

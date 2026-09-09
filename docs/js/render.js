@@ -10,12 +10,11 @@ const ISSUES = "https://github.com/hmcts/cpp-auto-shutdown/issues";
 const ADO = "https://dev.azure.com/hmcts-cpp/cpp-apps/_build/results?buildId=";
 
 /* Column 5 says only what time it goes off today. Which request caused it
- * belongs to column 6 — the two must not repeat each other. */
+ * belongs to column 6 — the two must not repeat each other. Baseline needs no
+ * qualifier: 19:00 is simply what every stack does. */
 const QUALIFIER = {
-  exception: "extended by exception",
-  extended: "later than baseline",
-  weekend: "weekend hours",
-  baseline: "", allDay: "", bankHoliday: "", weekendOff: ""
+  exception: "changed by exception",
+  baseline: "", bankHoliday: "", weekendOff: ""
 };
 
 function shutdownCell(schedule, observed) {
@@ -25,14 +24,11 @@ function shutdownCell(schedule, observed) {
   if (schedule.kind === "bankHoliday") {
     return pair("&mdash;", `${esc(schedule.detail || "Bank holiday")} &mdash; not started today`);
   }
-  if (schedule.kind === "weekendOff") return pair("&mdash;", "Not scheduled this weekend");
+  if (schedule.kind === "weekendOff") return pair("&mdash;", "Weekends are not scheduled");
   if (observed === "stopped") {
     return pair("&mdash;", `Already down &middot; next start ${esc(schedule.start || BASELINE_START)}`);
   }
-  if (!schedule.stop) {
-    return pair("Stays on",
-      schedule.kind === "exception" ? "Extended by exception" : "Runs 24 hours");
-  }
+  if (!schedule.stop) return pair("Stays on", "Running 24h by exception");
   const q = QUALIFIER[schedule.kind];
   return pair(esc(schedule.stop), `today${q ? ` &middot; ${q}` : ""}`);
 }

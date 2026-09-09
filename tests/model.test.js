@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { buildRow, componentReadings, exceptionStatus, stateLabel, isStale,
          MAX_OBSERVATION_AGE_HOURS } from "../docs/js/model.js";
-import { formatDate, formatAge, toMinutes } from "../docs/js/time.js";
+import { formatDate, formatAge, toMinutes, ageInHours } from "../docs/js/time.js";
 import { esc, safeUrl } from "../docs/js/dom.js";
 
 const TODAY = "2026-09-09";                        // Wednesday
@@ -11,7 +11,7 @@ const NOW = new Date("2026-09-09T10:00:00Z");
 
 const stack = (over = {}) => ({
   id: "DEVCCM01", env: "DEV", components: ["AKS"], owner: "A Person",
-  use: "Testing", stop: null, weekend: null, urls: [], notes: "", ...over
+  use: "Testing", urls: [], notes: "", ...over
 });
 
 const record = (over = {}) => ({
@@ -83,12 +83,22 @@ test("a bank holiday is skipped too", () => {
   assert.equal(row.stale, false);
 });
 
-test("24h stacks have no transitions and fall back to the age cap", () => {
-  const allDay = stack({ stop: "24h" });
+test("a stack under a rolling 24h exception has no transitions, so the age cap applies", () => {
+  // A long 24h exception means the stack never starts or stops, so there is
+  // nothing to count and only the backstop can judge it.
+  // The exception must cover the whole lookback window, otherwise the walk
+  // reaches a pre-exception baseline day and finds transitions after all.
+  const rolling = ctx({
+    exceptions: [{
+      stacks: ["DEVCCM01"], start: "2026-08-01", end: "2026-09-30",
+      window: "24h", applied: true
+    }]
+  });
   const fresh = record({ observedAt: "2026-09-08T10:00:00Z" });        // 24h
   const ancient = record({ observedAt: "2026-09-05T10:00:00Z" });      // 96h
-  assert.equal(buildRow(allDay, fresh, ctx()).stale, false);
-  assert.equal(buildRow(allDay, ancient, ctx()).stale, true);
+  assert.equal(buildRow(stack(), fresh, rolling).stale, false);
+  assert.ok(ageInHours(ancient, NOW) > MAX_OBSERVATION_AGE_HOURS);
+  assert.equal(buildRow(stack(), ancient, rolling).stale, true);
 });
 
 test("isStale reports true when there is no record at all", () => {

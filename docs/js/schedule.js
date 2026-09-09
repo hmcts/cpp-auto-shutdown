@@ -4,11 +4,19 @@
  * whether someone's environment is up during a release, so it is unit tested
  * in tests/schedule.test.js.
  *
+ * EVERY stack runs the same baseline: 06:00-19:00, weekdays only. There are no
+ * permanent per-stack alterations — the always-on stacks from the EA Confluence
+ * page do not carry over. An applied exception is the only thing that can change
+ * any of it, and exceptions are always dated, so they expire.
+ *
+ * Weekend and bank holiday running is therefore just an exception whose date
+ * range covers those days; it needs no separate rule.
+ *
  * Precedence, highest first:
  *   1. an applied exception covering today
- *   2. bank holiday        -> no startup unless the stack opts in
- *   3. weekend             -> no startup unless a weekend preset is set
- *   4. baseline 06:00-19:00, optionally with a later shutdown */
+ *   2. bank holiday -> stays down
+ *   3. weekend      -> stays down
+ *   4. baseline 06:00-19:00 */
 
 import { toMinutes, isWeekend, addDays, compareClock } from "./time.js";
 
@@ -37,35 +45,28 @@ export function nextExceptionFor(exceptions, stackId, date) {
 export function resolveSchedule(stack, { date, minutes, exceptions = [], bankHolidays = {} }) {
   const exception = exceptionFor(exceptions, stack.id, date, true);
   if (exception) {
-    const stop = exception.window === "24h" ? null : exception.window.split("-")[1];
-    return { status: "started", start: BASELINE_START, stop, kind: "exception" };
+    if (exception.window === "24h") {
+      return { status: "started", start: null, stop: null, kind: "exception" };
+    }
+    const [start, stop] = exception.window.split("-");
+    const inHours = minutes >= toMinutes(start) && minutes < toMinutes(stop);
+    return { status: inHours ? "started" : "stopped", start, stop, kind: "exception" };
   }
 
-  const bankHoliday = bankHolidays[date] || null;
-  const special = Boolean(bankHoliday) || isWeekend(date);
-
-  // Bank holidays and weekends only run if the stack has opted in with a preset.
-  if (special && !stack.weekend) {
-    return {
-      status: "stopped", start: BASELINE_START, stop: null,
-      kind: bankHoliday ? "bankHoliday" : "weekendOff",
-      detail: bankHoliday
-    };
+  const bankHoliday = bankHolidays[date];
+  if (bankHoliday) {
+    return { status: "stopped", start: null, stop: null,
+             kind: "bankHoliday", detail: bankHoliday };
+  }
+  if (isWeekend(date)) {
+    return { status: "stopped", start: null, stop: null, kind: "weekendOff" };
   }
 
-  const window = special ? stack.weekend : (stack.stop || BASELINE_STOP);
-  if (window === "24h") {
-    return { status: "started", start: null, stop: null, kind: "allDay" };
-  }
-
-  const [start, stop] = special ? window.split("-") : [BASELINE_START, window];
-  const inHours = minutes >= toMinutes(start) && minutes < toMinutes(stop);
-
+  const inHours = minutes >= toMinutes(BASELINE_START) && minutes < toMinutes(BASELINE_STOP);
   return {
     status: inHours ? "started" : "stopped",
-    start, stop,
-    kind: special ? "weekend"
-        : (stack.stop && stack.stop !== BASELINE_STOP ? "extended" : "baseline")
+    start: BASELINE_START, stop: BASELINE_STOP,
+    kind: "baseline"
   };
 }
 

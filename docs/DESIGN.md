@@ -110,27 +110,42 @@ Environment switcher: DEV, STE (SIT and NFT present but disabled, "reserved for 
 | 2 | Owner (DM)    | config                                                         |
 | 3 | Used for      | config                                                         |
 | 4 | State now     | **state** — aggregateStatus + per-component line + age flags   |
-| 5 | Shuts down    | config — effective stop time today                             |
+| 5 | Shuts down    | baseline, or an applied exception covering today               |
 | 6 | Exception req | config — lifecycle state + date window + request link          |
 
 Five of six columns are config. Only column 4 comes from the state file.
 
 Each column answers exactly one question. Column 5 must NOT restate the exception (which
-request, whose, what dates) — that belongs to column 6. Column 5 says only what time it goes
-off today, with a short qualifier: `later than baseline`, `weekend hours`,
-`extended by exception`.
+request, whose, what dates) — that belongs to column 6. It says only what time the stack goes
+off today: `19:00 · today` on the baseline, with the qualifier `changed by exception` when an
+applied exception is what moved it, or `Stays on · Running 24h by exception`.
+
+Baseline days carry no qualifier at all. 19:00 is simply what every stack does, so there is
+nothing to explain — and a qualifier there would read as though something had altered the
+schedule when nothing had.
 
 Summary tiles above the table: Up now / Shut down / Needs attention.
 Filters: free-text search, owner select, and a single "Needs attention only" toggle.
 
 ## 6. Derivation rules
 
-**Baseline**: 06:00 start, 19:00 stop.
-**Shutdown delays**: 21:00, 23:00, 24h.
-**Weekend / bank holiday presets**: 06:00–19:00, 06:00–21:00, 06:00–23:00, 24h.
+**Baseline applies to every stack**: 06:00–19:00, weekdays only, Europe/London.
+
+There are no permanent per-stack alterations. The always-on stacks that exist on the EA
+Confluence page do not carry over — after the migration, an applied exception is the only
+thing that can change any stack's hours, and exceptions always carry start and end dates, so
+they expire and have to be re-justified.
+
+That means config holds identity and ownership only (id, environment, components, owner,
+used_for, urls, notes) and carries no schedule at all.
+
+**Exception windows**: `06:00-19:00`, `06:00-21:00`, `06:00-23:00`, `24h`.
+Weekend and bank holiday running needs no separate mechanism — it is an exception whose date
+range includes those days.
+
 **Bank holidays**: from https://www.api.gov.uk/gds/bank-holidays/ (England & Wales).
-Startup is suppressed on a bank holiday unless the stack has a weekend/BH preset or an
-active exception. Cache the response; it changes yearly.
+Stacks stay down on a bank holiday unless an applied exception covers it. Cache the response;
+it changes yearly.
 
 **State now** — from the state record, never inferred from the clock:
 - `started` -> "Up"
@@ -168,9 +183,16 @@ which is the thing only this board can say.
 Days on which a stack never runs contribute no transitions, so weekends and bank holidays are
 skipped without special-casing.
 
-**Backstop**: stacks that run 24h never transition, so nothing can be counted for them. They
-fall back to `MAX_OBSERVATION_AGE_HOURS` (72), chosen to clear a bank holiday weekend. The
-same fallback covers a stack too newly scheduled to have two transitions behind it.
+**Backstop**: a stack under a long 24h exception never transitions, so nothing can be counted
+for it, and since nothing acts on it nothing observes it either. Those fall back to
+`MAX_OBSERVATION_AGE_HOURS` (72) — three days with no verification at all means we have lost
+sight of it. The same fallback covers a stack too newly added to have two transitions behind
+it.
+
+The cap deliberately does **not** apply to stacks that do transition: a legitimate
+Friday-to-Tuesday gap over a bank holiday runs to ~83 hours, so an age cap there would flag
+healthy stacks every long weekend — which is precisely why the primary rule counts
+transitions rather than hours.
 
 Flag text: "Last checked Xh ago — expected updates have not arrived". The value shown is
 still real, just no longer being maintained.
