@@ -8,5 +8,10 @@
     "test": "node --test tests/*.test.js",
     "serve": "python3 -m http.server 8000 --directory docs"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.1"
+  }
 }

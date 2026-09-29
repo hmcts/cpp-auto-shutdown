@@ -8,13 +8,21 @@ on:
     paths:
       - 'docs/js/**'
       - 'tests/**'
+      - 'config/**'
+      - 'state/**'
+      - 'schemas/**'
       - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/dashboard-tests.yaml'
   pull_request:
     paths:
       - 'docs/js/**'
       - 'tests/**'
+      - 'config/**'
+      - 'state/**'
+      - 'schemas/**'
       - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
 
 permissions:
@@ -31,6 +39,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run tests
         run: npm test
