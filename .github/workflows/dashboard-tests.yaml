@@ -1,7 +1,7 @@
 name: Dashboard tests
 
 # The schedule rules decide whether an environment is up during a release, so
-# they are unit tested. No dependencies to install — node's built-in runner.
+# they are unit tested. CI installs test dependencies before using Node's built-in runner.
 
 on:
   push:

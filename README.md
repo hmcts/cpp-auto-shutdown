@@ -10,11 +10,13 @@ down, and whether an exception request will actually take effect.
 
 - **Design spec:** [docs/DESIGN.md](docs/DESIGN.md)
 - **Page:** [docs/index.html](docs/index.html) + [docs/js/](docs/js/)
-- **Sample data:** [config/stacks.yaml](config/stacks.yaml) and
+- **Sample data:** [config/stacks.yaml](config/stacks.yaml),
+  [config/exceptions.yaml](config/exceptions.yaml), and
   [state/environments/](state/environments/)
 
-The page reads both files live from `raw.githubusercontent.com`. Because this repo is
-public, a state change needs **no Pages rebuild** — only changes to the page itself do.
+The page reads the configuration and state files live from `raw.githubusercontent.com`.
+Because this repo is public, a state change needs **no Pages rebuild** — only changes to the
+page itself do.
 It polls every 60 seconds and on tab focus; if a fetch fails it keeps the last good
 render and says so rather than showing stale data as current.
 
@@ -22,8 +24,12 @@ render and says so rather than showing stale data as current.
 
 ```shell
 npm run serve     # http://localhost:8000
-npm test          # unit tests, no dependencies to install
+npm ci            # install test-only schema validation dependencies
+npm test          # unit and schema tests
 ```
+
+`npm install` may be used instead of `npm ci`. The static dashboard itself does not require
+these packages to be served.
 
 Add `?ref=BRANCH-NAME` to read data from a branch that has not been merged yet, e.g.
 `http://localhost:8000/?ref=DTSPO-34135`.
@@ -33,9 +39,9 @@ pushes to `main` that touch `docs/**`.
 
 ### Data model in one line
 
-`config/stacks.yaml` is declared intent (schedule, ownership, exceptions).
-`state/environments/*.json` is what live verification observed. They are kept separate
-so configuration can never be mistaken for observation.
+`config/stacks.yaml` is stack intent, `config/exceptions.yaml` is workflow-owned dated
+requests, and `state/environments/*.json` is what live verification observed. They are kept
+separate so configuration can never be mistaken for observation.
 
 ### Structure
 
