@@ -9,7 +9,8 @@ In this repo:
   - `time.js` Europe/London clock helpers
   - `schedule.js` schedule resolution — pure, unit tested
   - `model.js` config/state join, staleness, drift, exception lifecycle — pure, unit tested
-  - `data.js` fetching and normalising both files
+  - `data.js` fetching and normalising `config/stacks.yaml` and
+    `config/exceptions.yaml`, and separately loading environment state JSON
   - `dom.js` escaping helpers
   - `render.js` DOM output
   - `main.js` wiring
@@ -85,8 +86,9 @@ never appended. The document requires `environment` (`dev` or `ste`) and `stacks
 stack record requires `stack`, `stackComponents`, `aggregateStatus`, `observedAt`,
 `sourcePipeline`, `sourceRunId`, and `components`. `stackComponents` uses `AKS`, `IaaS`, and
 `PaaS`; aggregate status is `started`, `stopped`, or `partial`. All component keys (`aks`,
-`iaas`, and `paas`) are present: a used component is an object requiring `requested`,
-`status`, `verified`, and `reason`, while an unused component is `null`. Component status is
+`iaas`, and `paas`) are present: membership in `stackComponents` determines whether a
+component is used. A listed component is an object requiring `requested`, `status`,
+`verified`, and `reason`; an unlisted component is literal `null`. Component status is
 `started` or `stopped`. Per the observed-state design:
 
     {
