@@ -1,11 +1,13 @@
 {
   "name": "cpp-auto-shutdown-dashboard",
   "version": "1.0.0",
-  "description": "Environment Board — static dashboard for CRIME non-production stacks",
+  "description": "Environment Board \u2014 static dashboard for CRIME non-production stacks",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js",
+    "test": "npm run test:dashboard && npm run test:data",
+    "test:dashboard": "node --test tests/*.test.js",
+    "test:data": "node --test tests/data-validation/*.test.js",
     "serve": "python3 -m http.server 8000 --directory docs"
   },
   "license": "MIT",

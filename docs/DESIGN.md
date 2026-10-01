@@ -14,7 +14,11 @@ In this repo:
   - `dom.js` escaping helpers
   - `render.js` DOM output
   - `main.js` wiring
-- `tests/` — `npm test` (Node's built-in runner plus test-only schema dependencies)
+- `tests/` — dashboard unit tests, `npm run test:dashboard` (Node's built-in runner, no
+  dependencies); CI: `.github/workflows/dashboard-tests.yaml`
+- `tests/data-validation/` — schema and data validation, `npm run test:data` (test-only
+  schema dependencies); CI: `.github/workflows/data-validation.yaml`, triggered by changes
+  to `config/**`, `state/environments/**`, or `schemas/**`
 - `config/stacks.yaml` — sample stack configuration (declared intent)
 - `config/exceptions.yaml` — sample dated exception requests (workflow-owned)
 - `schemas/stacks.schema.json` — stack configuration contract
@@ -108,8 +112,8 @@ component is used. A listed component is an object requiring `requested`, `statu
       }
     }
 
-CI schema tests validate both YAML configuration files and every
-`state/environments/*.json` file against the three schemas.
+The data-validation workflow (`tests/data-validation/`) validates both YAML configuration
+files and every `state/environments/*.json` file against the three schemas.
 
 Invariants the UI must respect:
 - A failed or missing verification writes NOTHING. The old record stays and `observedAt`

@@ -25,7 +25,9 @@ render and says so rather than showing stale data as current.
 ```shell
 npm run serve     # http://localhost:8000
 npm ci            # install test-only schema validation dependencies
-npm test          # unit and schema tests
+npm test          # all tests
+npm run test:dashboard  # dashboard unit tests only (no dependencies needed)
+npm run test:data       # schema/data validation only (tests/data-validation/)
 ```
 
 `npm install` may be used instead of `npm ci`. The static dashboard itself does not require
@@ -53,7 +55,8 @@ docs/js/model.js     config/state join, drift  (pure, unit tested)
 docs/js/data.js      fetching and normalising
 docs/js/render.js    DOM output (everything escaped — see dom.js)
 docs/js/main.js      wiring
-tests/               node --test
+tests/               dashboard unit tests (node --test)
+tests/data-validation/  schema and data validation tests
 ```
 
 No framework and no bundler: ES modules are served as-is.

@@ -3,9 +3,11 @@
 ## Commands
 
 - Install test-only schema dependencies with `npm ci` (or `npm install`), then run all
-  unit and schema tests with `npm test`.
+  tests with `npm test`. Run only dashboard unit tests (`tests/*.test.js`, no dependencies)
+  with `npm run test:dashboard`, or only data validation (`tests/data-validation/`) with
+  `npm run test:data`.
 - Run one test file with `node --test tests/model.test.js` or
-  `node --test tests/schedule.test.js`.
+  `node --test tests/data-validation/schema.test.js`.
 - Filter to one test by name, for example:
   `node --test --test-name-pattern="baseline boundaries are inclusive" tests/schedule.test.js`.
 - Serve the dashboard locally with `npm run serve`, then open
@@ -25,10 +27,12 @@ calendar, and exception views; `main.js` wires loading, refresh, filters, and na
 `config/stacks.yaml` describes declared stack intent; workflow-owned dated requests live in
 `config/exceptions.yaml`; and `state/environments/*.json` records the last successful live
 observation. Their contracts are defined by `schemas/stacks.schema.json`,
-`schemas/exceptions.schema.json`, and `schemas/environment-state.schema.json`; `npm test`
+`schemas/exceptions.schema.json`, and `schemas/environment-state.schema.json`; `npm run test:data`
 validates both YAML files and every environment JSON file. Keep these contracts separate:
 the dashboard is read-only, and a failed verification leaves the last observed record in
-place. The Pages workflow publishes `docs/` on pushes to `main` that change `docs/**`;
+place. CI is split: `dashboard-tests.yaml` runs dashboard unit tests on `docs/js/**` and `tests/**`
+changes, and `data-validation.yaml` runs data validation on `config/**`,
+`state/environments/**`, and `schemas/**` changes. The Pages workflow publishes `docs/` on pushes to `main` that change `docs/**`;
 state/config changes are read from the public repository at runtime and do not require a
 Pages rebuild.
 
