@@ -3,6 +3,7 @@
   "title": "Stacks configuration",
   "type": "object",
   "required": ["defaults", "exception_windows", "stacks"],
+  "additionalProperties": false,
   "properties": {
     "defaults": {
       "type": "object",
