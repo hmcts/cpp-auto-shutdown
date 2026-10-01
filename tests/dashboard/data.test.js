@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loadConfig } from "../docs/js/data.js";
+import { loadConfig } from "../../docs/js/data.js";
 
 test("loadConfig combines stack and exception YAML documents", async t => {
   const oldLocation = globalThis.location;

@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:dashboard && npm run test:data",
-    "test:dashboard": "node --test tests/*.test.js",
-    "test:data": "node --test tests/data-validation/*.test.js",
+    "test:dashboard": "node --test tests/dashboard/**/*.test.js",
+    "test:data": "node --test tests/data-validation/**/*.test.js",
     "serve": "python3 -m http.server 8000 --directory docs"
   },
   "license": "MIT",

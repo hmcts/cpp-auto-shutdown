@@ -7,15 +7,13 @@ on:
   push:
     paths:
       - 'docs/js/**'
-      - 'tests/**'
-      - '!tests/data-validation/**'
+      - 'tests/dashboard/**'
       - 'package.json'
       - '.github/workflows/dashboard-tests.yaml'
   pull_request:
     paths:
       - 'docs/js/**'
-      - 'tests/**'
-      - '!tests/data-validation/**'
+      - 'tests/dashboard/**'
       - 'package.json'
       - '.github/workflows/dashboard-tests.yaml'
   workflow_dispatch:

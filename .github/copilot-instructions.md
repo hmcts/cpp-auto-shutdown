@@ -3,13 +3,13 @@
 ## Commands
 
 - Install test-only schema dependencies with `npm ci` (or `npm install`), then run all
-  tests with `npm test`. Run only dashboard unit tests (`tests/*.test.js`, no dependencies)
-  with `npm run test:dashboard`, or only data validation (`tests/data-validation/`) with
+  tests with `npm test`. Run only dashboard unit tests (`tests/dashboard/**/*.test.js`, no dependencies)
+  with `npm run test:dashboard`, or only data validation (`tests/data-validation/**/*.test.js`) with
   `npm run test:data`.
-- Run one test file with `node --test tests/model.test.js` or
+- Run one test file with `node --test tests/dashboard/model.test.js` or
   `node --test tests/data-validation/schema.test.js`.
 - Filter to one test by name, for example:
-  `node --test --test-name-pattern="baseline boundaries are inclusive" tests/schedule.test.js`.
+  `node --test --test-name-pattern="baseline boundaries are inclusive" tests/dashboard/schedule.test.js`.
 - Serve the dashboard locally with `npm run serve`, then open
   `http://localhost:8000`.
 - There is no separate build or lint script. Run the configured repository checks with
@@ -30,7 +30,7 @@ observation. Their contracts are defined by `schemas/stacks.schema.json`,
 `schemas/exceptions.schema.json`, and `schemas/environment-state.schema.json`; `npm run test:data`
 validates both YAML files and every environment JSON file. Keep these contracts separate:
 the dashboard is read-only, and a failed verification leaves the last observed record in
-place. CI is split: `dashboard-tests.yaml` runs dashboard unit tests on `docs/js/**` and `tests/**`
+place. CI is split: `dashboard-tests.yaml` runs dashboard unit tests on `docs/js/**` and `tests/dashboard/**`
 changes, and `data-validation.yaml` runs data validation on `config/**`,
 `state/environments/**`, and `schemas/**` changes. The Pages workflow publishes `docs/` on pushes to `main` that change `docs/**`;
 state/config changes are read from the public repository at runtime and do not require a

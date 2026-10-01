@@ -26,7 +26,7 @@ render and says so rather than showing stale data as current.
 npm run serve     # http://localhost:8000
 npm ci            # install test-only schema validation dependencies
 npm test          # all tests
-npm run test:dashboard  # dashboard unit tests only (no dependencies needed)
+npm run test:dashboard  # dashboard unit tests only (tests/dashboard/, no dependencies needed)
 npm run test:data       # schema/data validation only (tests/data-validation/)
 ```
 
@@ -55,7 +55,7 @@ docs/js/model.js     config/state join, drift  (pure, unit tested)
 docs/js/data.js      fetching and normalising
 docs/js/render.js    DOM output (everything escaped — see dom.js)
 docs/js/main.js      wiring
-tests/               dashboard unit tests (node --test)
+tests/dashboard/      dashboard unit tests (node --test)
 tests/data-validation/  schema and data validation tests
 ```
 
