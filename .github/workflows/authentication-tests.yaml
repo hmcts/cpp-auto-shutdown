@@ -1,0 +1,52 @@
+name: Authentication tests
+
+on:
+  push:
+    paths:
+      - 'tests/authentication/**'
+      - 'scripts/app-write-probe.sh'
+      - '.github/workflows/github-app-write-probe.yaml'
+      - '.github/workflows/authentication-tests.yaml'
+      - '.github/workflows/dashboard-tests.yaml'
+      - '.github/workflows/data-validation.yaml'
+      - '.github/workflows/deploy-github-pages.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'tests/authentication/**'
+      - 'scripts/app-write-probe.sh'
+      - '.github/workflows/github-app-write-probe.yaml'
+      - '.github/workflows/authentication-tests.yaml'
+      - '.github/workflows/dashboard-tests.yaml'
+      - '.github/workflows/data-validation.yaml'
+      - '.github/workflows/deploy-github-pages.yaml'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  authentication-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Check probe shell syntax
+        run: bash -n scripts/app-write-probe.sh
+
+      - name: Run offline authentication tests
+        run: npm run test:auth

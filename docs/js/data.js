@@ -26,7 +26,7 @@ async function getText(url) {
   return res.text();
 }
 
-/* ---- config/stacks.yaml -------------------------------------------------- */
+/* ---- config/stacks.yaml and config/exceptions.yaml ----------------------- */
 
 /* Normalise a YAML stack entry. Config carries identity and ownership only —
  * schedule alterations live in exceptions, never on the stack. */
@@ -60,16 +60,19 @@ function normaliseException(raw) {
 }
 
 export async function loadConfig() {
-  const [stackText, exceptionText] = await Promise.all([
+  if (!globalThis.jsyaml) throw new Error("js-yaml failed to load");
+  const [stacksText, exceptionsText] = await Promise.all([
     getText(`${rawBase()}/config/stacks.yaml`),
     getText(`${rawBase()}/config/exceptions.yaml`)
   ]);
-  if (!globalThis.jsyaml) throw new Error("js-yaml failed to load");
-  const stackDoc = globalThis.jsyaml.load(stackText);
-  const exceptionDoc = globalThis.jsyaml.load(exceptionText);
+  const stacksDoc = globalThis.jsyaml.load(stacksText);
+  const exceptionsDoc = globalThis.jsyaml.load(exceptionsText);
+  if (!Array.isArray(stacksDoc?.stacks) || !Array.isArray(exceptionsDoc?.exceptions)) {
+    throw new Error("Invalid stack or exception configuration");
+  }
   return {
-    stacks: (stackDoc.stacks || []).map(normaliseStack),
-    exceptions: (exceptionDoc.exceptions || []).map(normaliseException)
+    stacks: stacksDoc.stacks.map(normaliseStack),
+    exceptions: exceptionsDoc.exceptions.map(normaliseException)
   };
 }
 

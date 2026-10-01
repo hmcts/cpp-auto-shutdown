@@ -146,9 +146,9 @@ Environment switcher: DEV, STE (SIT and NFT present but disabled, "reserved for 
 | 3 | Used for      | config                                                         |
 | 4 | State now     | **state** — aggregateStatus + age flags                        |
 | 5 | Shuts down    | baseline, or an applied exception covering today               |
-| 6 | Exception req | config — lifecycle state + date window + request link          |
+| 6 | Exception req | exceptions — lifecycle state + date window + request link      |
 
-Five of six columns are config. Only column 4 comes from the state file.
+Stack definitions and exceptions supply five columns. Only column 4 comes from state.
 
 Each column answers exactly one question. Column 5 must NOT restate the exception (which
 request, whose, what dates) — that belongs to column 6. It says only what time the stack goes
@@ -171,8 +171,8 @@ Confluence page do not carry over — after the migration, an applied exception 
 thing that can change any stack's hours, and exceptions always carry start and end dates, so
 they expire and have to be re-justified.
 
-That means config holds identity and ownership only (id, environment, components, owner,
-used_for, urls, notes) and carries no schedule at all.
+The stack entries hold identity and ownership only (id, environment, components, owner,
+used_for, urls, notes). The baseline is shared and exceptions live in their own file.
 
 **Exception windows**: `06:00-19:00`, `06:00-21:00`, `06:00-23:00`, `24h`.
 Weekend and bank holiday running needs no separate mechanism — it is an exception whose date
