@@ -23,6 +23,15 @@ function getValidators() {
   return validatorsPromise;
 }
 
+function validateExceptionDocument(data, validate) {
+  assert.equal(validate(data), true,
+    `config/exceptions.yaml: ${JSON.stringify(validate.errors)}`);
+  for (const exception of data.exceptions) {
+    assert.ok(exception.start <= exception.end,
+      `config/exceptions.yaml: request ${exception.request} has end ${exception.end} before start ${exception.start}`);
+  }
+}
+
 async function validateSamples() {
   const [validateStacks, validateExceptions, validateState] = await getValidators();
   const files = (await readdir("state/environments", { withFileTypes: true }))
@@ -39,8 +48,12 @@ async function validateSamples() {
 
   for (const [dataPath, validate, decode] of cases) {
     const data = decode(await readFile(dataPath, "utf8"));
-    assert.equal(validate(data), true,
-      `${dataPath}: ${JSON.stringify(validate.errors)}`);
+    if (dataPath === "config/exceptions.yaml") {
+      validateExceptionDocument(data, validate);
+    } else {
+      assert.equal(validate(data), true,
+        `${dataPath}: ${JSON.stringify(validate.errors)}`);
+    }
   }
 }
 
@@ -149,4 +162,21 @@ test("configuration and state reject out-of-range enum values", async () => {
     assert.ok(validate.errors.some(error => error.keyword === "enum"),
       `${name}: ${JSON.stringify(validate.errors)}`);
   }
+});
+
+test("exception date windows cannot end before they start", async () => {
+  const [, validateExceptions] = await getValidators();
+  const exceptions = parse(await readFile("config/exceptions.yaml", "utf8"));
+  const reversed = structuredClone(exceptions);
+  reversed.exceptions[0].start = "2026-09-10";
+  reversed.exceptions[0].end = "2026-09-09";
+
+  assert.throws(
+    () => validateExceptionDocument(reversed, validateExceptions),
+    /request 105.*end .* before start/
+  );
+
+  const sameDay = structuredClone(exceptions);
+  sameDay.exceptions[0].end = sameDay.exceptions[0].start;
+  assert.doesNotThrow(() => validateExceptionDocument(sameDay, validateExceptions));
 });

@@ -79,7 +79,9 @@ available exception windows, and stack definitions, but no dated requests.
 `exceptions` array. Every request requires `request`, `reference`, `stacks`, `start`, `end`,
 `window`, `requester`, `approver`, `applied`, and `justification`. Dates use `YYYY-MM-DD`;
 `approver` may be a string or `null`; and `window` uses the same four values as
-`exception_windows`.
+`exception_windows`. An exception may start and end on the same day, but its `end`
+must not precede its `start`. CI checks this ordering after schema validation because
+the schema validates the two dates independently.
 
 **state/environments/<env>.json** — observed state. One record per stack, replaced in place,
 never appended. The document requires `environment` (`dev` or `ste`) and `stacks`. Every
