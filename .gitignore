@@ -4,3 +4,4 @@ crash.log
 *.lock.hcl
 .idea/
 *.iml
+node_modules/

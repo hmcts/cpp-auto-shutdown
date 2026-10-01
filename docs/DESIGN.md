@@ -9,12 +9,21 @@ In this repo:
   - `time.js` Europe/London clock helpers
   - `schedule.js` schedule resolution — pure, unit tested
   - `model.js` config/state join, staleness, drift, exception lifecycle — pure, unit tested
-  - `data.js` fetching and normalising both files
+  - `data.js` fetching and normalising `config/stacks.yaml` and
+    `config/exceptions.yaml`, and separately loading environment state JSON
   - `dom.js` escaping helpers
   - `render.js` DOM output
   - `main.js` wiring
-- `tests/` — `npm test` (node's built-in runner, no dependencies)
-- `config/stacks.yaml` — sample configuration (declared intent)
+- `tests/` — dashboard unit tests, `npm run test:dashboard` (Node's built-in runner, no
+  dependencies); CI: `.github/workflows/dashboard-tests.yaml`
+- `tests/data-validation/` — schema and data validation, `npm run test:data` (test-only
+  schema dependencies); CI: `.github/workflows/data-validation.yaml`, triggered by changes
+  to `config/**`, `state/environments/**`, or `schemas/**`
+- `config/stacks.yaml` — sample stack configuration (declared intent)
+- `config/exceptions.yaml` — sample dated exception requests (workflow-owned)
+- `schemas/stacks.schema.json` — stack configuration contract
+- `schemas/exceptions.schema.json` — exception request contract
+- `schemas/environment-state.schema.json` — observed-state contract
 - `state/environments/dev.json`, `ste.json` — sample observed state
 
 Run locally with `npm run serve` and open http://localhost:8000.
@@ -35,17 +44,21 @@ Because the repo is public the browser fetches source files directly — there i
 server-side merge, no generated `data.json`, and no rebuild when state changes:
 
     https://raw.githubusercontent.com/hmcts/cpp-auto-shutdown/main/config/stacks.yaml
+    https://raw.githubusercontent.com/hmcts/cpp-auto-shutdown/main/config/exceptions.yaml
     https://raw.githubusercontent.com/hmcts/cpp-auto-shutdown/main/state/environments/<env>.json
 
+- The browser loads both configuration files and joins them into the unchanged internal
+  `{ stacks, exceptions }` model before combining that intent with observed state.
 - `raw.githubusercontent.com` sends `access-control-allow-origin: *` and `cache-control: max-age=300`.
 - Poll every 60s AND on `visibilitychange` (a DM may leave the tab open all day).
-- Pages redeploy is only needed when the HTML/JS itself changes.
+- Source-data changes require no Pages rebuild; redeploy is only needed when the HTML/JS
+  itself changes.
 - Freshness ceiling is ~5 min (CDN), but the state file itself only changes every 30–60 min
   (379 every 30 min, 416 hourly), so this is as fresh as the data ever gets.
-- `config/stacks.yaml` is YAML, parsed in the browser with `js-yaml` 4.1.0 from cdnjs.
-  DECIDED: YAML stays, because config is the file humans read and review in PRs, and it
-  carries explanatory comments that JSON cannot. Note that js-yaml turns an unquoted
-  `2026-09-08` into a `Date`; `toIsoDate()` normalises it.
+- Both configuration files are YAML, parsed in the browser with `js-yaml` 4.1.0 from cdnjs.
+  DECIDED: YAML stays, because config is what humans read and review in PRs, and it carries
+  explanatory comments that JSON cannot. Note that js-yaml turns an unquoted `2026-09-08`
+  into a `Date`; `toIsoDate()` normalises it.
 - Bank holidays come from `https://www.gov.uk/bank-holidays.json` (england-and-wales), which
   sends `access-control-allow-origin: *`. If it is unavailable the board carries on and simply
   treats the day as an ordinary weekday.
@@ -55,15 +68,34 @@ refreshed and when it last loaded. Never silently show stale data as if it were 
 
 ## 3. Data contract
 
-Two files, joined on stack ID. The dashboard is read-only; it writes to neither.
+The two configuration documents are combined and then joined to observed state on stack ID.
+The dashboard is read-only; it writes to none of these files.
 
-**config/stacks.yaml** — declared intent. Supplies: stack id, environment, components
-(AKS / IaaS / PaaS), owner (DM name), used-for, URLs, notes — and the exceptions, each with
-requester, approver, date window, window preset, applied status, Jira ref and request number.
-It carries no schedule: every stack runs the baseline, and exceptions are the only deviation.
+**config/stacks.yaml** — declared stack intent. It requires `defaults`,
+`exception_windows`, and `stacks`. Defaults require `timezone`, `startup`, `shutdown`,
+`weekdays_only`, and `bank_holidays_source`. Each stack requires `id`, `environment`,
+`components`, `owner`, `used_for`, `urls`, and `notes`. `environment` is `dev` or `ste`;
+component values are `AKS`, `IaaS`, or `PaaS`; and available exception windows are
+`06:00-19:00`, `06:00-21:00`, `06:00-23:00`, and `24h`. It carries the baseline defaults,
+available exception windows, and stack definitions, but no dated requests.
+
+**config/exceptions.yaml** — workflow-owned dated exception requests. It requires an
+`exceptions` array. Every request requires `request`, `reference`, `stacks`, `start`, `end`,
+`window`, `requester`, `approver`, `applied`, and `justification`. Dates use `YYYY-MM-DD`;
+`approver` may be a string or `null`; and `window` uses the same four values as
+`exception_windows`. An exception may start and end on the same day, but its `end`
+must not precede its `start`. CI checks this ordering after schema validation because
+the schema validates the two dates independently.
 
 **state/environments/<env>.json** — observed state. One record per stack, replaced in place,
-never appended. Per the observed-state design:
+never appended. The document requires `environment` (`dev` or `ste`) and `stacks`. Every
+stack record requires `stack`, `stackComponents`, `aggregateStatus`, `observedAt`,
+`sourcePipeline`, `sourceRunId`, and `components`. `stackComponents` uses `AKS`, `IaaS`, and
+`PaaS`; aggregate status is `started`, `stopped`, or `partial`. All component keys (`aks`,
+`iaas`, and `paas`) are present: membership in `stackComponents` determines whether a
+component is used. A listed component is an object requiring `requested`, `status`,
+`verified`, and `reason`; an unlisted component is literal `null`. Component status is
+`started` or `stopped`. Per the observed-state design:
 
     {
       "stack": "steccm13",
@@ -79,6 +111,9 @@ never appended. Per the observed-state design:
                  "verified": true, "reason": "All requested AKS workloads ready" }
       }
     }
+
+The data-validation workflow (`tests/data-validation/`) validates both YAML configuration
+files and every `state/environments/*.json` file against the three schemas.
 
 Invariants the UI must respect:
 - A failed or missing verification writes NOTHING. The old record stays and `observedAt`

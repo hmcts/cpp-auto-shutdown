@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Stacks configuration",
+  "type": "object",
+  "required": ["defaults", "exception_windows", "stacks"],
+  "additionalProperties": false,
+  "properties": {
+    "defaults": {
+      "type": "object",
+      "required": ["timezone", "startup", "shutdown", "weekdays_only", "bank_holidays_source"],
+      "properties": {
+        "timezone": { "type": "string", "const": "Europe/London" },
+        "startup": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+        "shutdown": { "type": "string", "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$" },
+        "weekdays_only": { "type": "boolean" },
+        "bank_holidays_source": { "type": "string", "format": "uri" }
+      }
+    },
+    "exception_windows": {
+      "type": "array",
+      "items": { "enum": ["06:00-19:00", "06:00-21:00", "06:00-23:00", "24h"] }
+    },
+    "stacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "environment", "components", "owner", "used_for", "urls", "notes"],
+        "properties": {
+          "id": { "type": "string" },
+          "environment": { "enum": ["dev", "ste"] },
+          "components": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "enum": ["AKS", "IaaS", "PaaS"] }
+          },
+          "owner": { "type": "string" },
+          "used_for": { "type": "string" },
+          "urls": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                { "type": "string" },
+                {
+                  "type": "object",
+                  "required": ["url"],
+                  "properties": {
+                    "url": { "type": "string" },
+                    "role": { "type": "string" }
+                  }
+                }
+              ]
+            }
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    }
+  }
+}

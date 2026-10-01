@@ -1,0 +1,46 @@
+name: Data validation
+
+# Validates the dashboard's data files (config, environment state) against the
+# JSON Schemas in schemas/, plus semantic rules such as exception start <= end.
+
+on:
+  push:
+    paths:
+      - 'config/**'
+      - 'state/environments/**'
+      - 'schemas/**'
+      - 'tests/data-validation/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/data-validation.yaml'
+  pull_request:
+    paths:
+      - 'config/**'
+      - 'state/environments/**'
+      - 'schemas/**'
+      - 'tests/data-validation/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/data-validation.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate data against schemas
+        run: npm run test:data

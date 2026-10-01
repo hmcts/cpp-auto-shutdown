@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Environment state",
+  "$defs": {
+    "component": {
+      "type": "object",
+      "required": [
+        "requested",
+        "status",
+        "verified",
+        "reason"
+      ],
+      "properties": {
+        "requested": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "started",
+            "stopped"
+          ]
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "type": "object",
+  "required": [
+    "environment",
+    "stacks"
+  ],
+  "properties": {
+    "environment": {
+      "enum": [
+        "dev",
+        "ste"
+      ]
+    },
+    "stacks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "stack",
+          "stackComponents",
+          "aggregateStatus",
+          "observedAt",
+          "sourcePipeline",
+          "sourceRunId",
+          "components"
+        ],
+        "properties": {
+          "stack": {
+            "type": "string"
+          },
+          "stackComponents": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "AKS",
+                "IaaS",
+                "PaaS"
+              ]
+            }
+          },
+          "aggregateStatus": {
+            "enum": [
+              "started",
+              "stopped",
+              "partial"
+            ]
+          },
+          "observedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sourcePipeline": {
+            "type": "integer"
+          },
+          "sourceRunId": {
+            "type": "integer"
+          },
+          "components": {
+            "type": "object",
+            "required": [
+              "aks",
+              "iaas",
+              "paas"
+            ],
+            "properties": {
+              "aks": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/component"
+                  }
+                ]
+              },
+              "iaas": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/component"
+                  }
+                ]
+              },
+              "paas": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/component"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "stackComponents": {
+                  "type": "array",
+                  "contains": {
+                    "const": "AKS"
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "aks": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "aks": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "stackComponents": {
+                  "type": "array",
+                  "contains": {
+                    "const": "IaaS"
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "iaas": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "iaas": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "stackComponents": {
+                  "type": "array",
+                  "contains": {
+                    "const": "PaaS"
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "paas": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "components": {
+                  "type": "object",
+                  "properties": {
+                    "paas": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

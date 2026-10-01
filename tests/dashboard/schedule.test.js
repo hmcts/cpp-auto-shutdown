@@ -3,8 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   resolveSchedule, exceptionFor, nextExceptionFor, BASELINE_START, BASELINE_STOP
-} from "../docs/js/schedule.js";
-import { londonClock, toMinutes, isWeekend, toIsoDate } from "../docs/js/time.js";
+} from "../../docs/js/schedule.js";
+import { londonClock, toMinutes, isWeekend, toIsoDate } from "../../docs/js/time.js";
 
 /* Config carries no schedule: every stack runs the baseline and only an applied
  * exception changes it. */

@@ -60,12 +60,16 @@ function normaliseException(raw) {
 }
 
 export async function loadConfig() {
-  const text = await getText(`${rawBase()}/config/stacks.yaml`);
+  const [stackText, exceptionText] = await Promise.all([
+    getText(`${rawBase()}/config/stacks.yaml`),
+    getText(`${rawBase()}/config/exceptions.yaml`)
+  ]);
   if (!globalThis.jsyaml) throw new Error("js-yaml failed to load");
-  const doc = globalThis.jsyaml.load(text);
+  const stackDoc = globalThis.jsyaml.load(stackText);
+  const exceptionDoc = globalThis.jsyaml.load(exceptionText);
   return {
-    stacks: (doc.stacks || []).map(normaliseStack),
-    exceptions: (doc.exceptions || []).map(normaliseException)
+    stacks: (stackDoc.stacks || []).map(normaliseStack),
+    exceptions: (exceptionDoc.exceptions || []).map(normaliseException)
   };
 }
 

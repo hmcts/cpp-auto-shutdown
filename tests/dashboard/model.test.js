@@ -2,9 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { buildRow, componentReadings, exceptionStatus, stateLabel, isStale,
-         MAX_OBSERVATION_AGE_HOURS } from "../docs/js/model.js";
-import { formatDate, formatAge, toMinutes, ageInHours } from "../docs/js/time.js";
-import { esc, safeUrl } from "../docs/js/dom.js";
+         MAX_OBSERVATION_AGE_HOURS } from "../../docs/js/model.js";
+import { formatDate, formatAge, toMinutes, ageInHours } from "../../docs/js/time.js";
+import { esc, safeUrl } from "../../docs/js/dom.js";
 
 const TODAY = "2026-09-09";                        // Wednesday
 const NOW = new Date("2026-09-09T10:00:00Z");
