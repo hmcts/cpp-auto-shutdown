@@ -101,7 +101,10 @@ test("empty configuration arrays are valid but missing or malformed arrays fail 
     [{ stacks: {} }, { exceptions: [] }], [{ stacks: [] }, { exceptions: {} }]
   ]) {
     await withData(stacks, exceptions, async () => {
-      await assert.rejects(loadConfig(), /Invalid stack or exception configuration/);
+      await assert.rejects(loadConfig(), {
+        name: "TypeError",
+        message: "Invalid stack or exception configuration"
+      });
     });
   }
 });

@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -9,12 +9,15 @@ import { fileURLToPath } from "node:url";
 const script = fileURLToPath(new URL("../../scripts/app-write-probe.sh", import.meta.url));
 const token = "dummy-offline-local-git-token";
 // Resolve Git before adding the wrapper to PATH. No caller Git configuration is inherited.
-const lookup = spawnSync("/bin/sh", ["-c", "command -v git"], {
-  encoding: "utf8", env: { PATH: process.env.PATH || "/usr/bin:/bin" }
+let realGit;
+before(() => {
+  const lookup = spawnSync("/bin/sh", ["-c", "command -v git"], {
+    encoding: "utf8", env: { PATH: process.env.PATH || "/usr/bin:/bin" }
+  });
+  assert.ifError(lookup.error);
+  assert.equal(lookup.status, 0, lookup.stderr);
+  realGit = realpathSync(lookup.stdout.trim());
 });
-assert.ifError(lookup.error);
-assert.equal(lookup.status, 0, lookup.stderr);
-const realGit = realpathSync(lookup.stdout.trim());
 
 // This is an allowlist, not a general URL rewriter. All other Git calls fail closed.
 const wrapper = `#!${process.execPath}

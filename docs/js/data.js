@@ -68,7 +68,7 @@ export async function loadConfig() {
   const stacksDoc = globalThis.jsyaml.load(stacksText);
   const exceptionsDoc = globalThis.jsyaml.load(exceptionsText);
   if (!Array.isArray(stacksDoc?.stacks) || !Array.isArray(exceptionsDoc?.exceptions)) {
-    throw new Error("Invalid stack or exception configuration");
+    throw new TypeError("Invalid stack or exception configuration");
   }
   return {
     stacks: stacksDoc.stacks.map(normaliseStack),
