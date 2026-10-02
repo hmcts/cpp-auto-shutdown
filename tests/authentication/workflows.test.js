@@ -65,6 +65,10 @@ test("offline CI runs distinct suites using explicit directory inclusion", () =>
       assert.ok(!runs.includes("npm test"));
       assert.ok(!runs.includes("bash scripts/app-write-probe.sh"));
       assert.ok(job.steps.every(step => !step.uses?.includes("create-github-app-token")));
+      for (const run of runs.filter(run => /^npm (ci|install)\b/.test(run))) {
+        assert.equal(run, "npm ci --ignore-scripts", "dependency installation must not execute lifecycle scripts");
+      }
+      if (name !== "dashboard-tests") assert.ok(runs.includes("npm ci --ignore-scripts"));
     }
   }
   assert.equal(new Set(checkNames).size, checkNames.length, "suite job check names must be unique");

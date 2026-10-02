@@ -43,7 +43,7 @@ jobs:
           node-version: '22'
 
       - name: Install test dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Check probe shell syntax
         run: bash -n scripts/app-write-probe.sh

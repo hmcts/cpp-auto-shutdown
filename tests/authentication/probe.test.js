@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 
 const script = fileURLToPath(new URL("../../scripts/app-write-probe.sh", import.meta.url));
 const sha = "a".repeat(40);
+const descendantSha = "b".repeat(40);
 const token = "dummy-offline-token-never-use-live";
 
 // Every Git call goes through this stub. Unexpected calls fail, never fall back to real Git.
@@ -45,10 +46,20 @@ switch (operation) {
     break;
   }
   case 'commit': break;
-  case 'rev-parse': console.log(process.env.INVALID_SHA === 'true' ? 'invalid' : '${sha}'); break;
+  case 'rev-parse':
+    if (JSON.stringify(command) === JSON.stringify(['rev-parse', 'HEAD'])) {
+      console.log(process.env.INVALID_SHA === 'true' ? 'invalid' : '${sha}');
+    } else if (JSON.stringify(command) === JSON.stringify(['rev-parse', 'refs/remotes/origin/main'])) {
+      console.log(process.env.REMOTE_SHA || '${sha}');
+    } else process.exit(45);
+    break;
   case 'push': break;
-  case 'ls-remote':
-    console.log((process.env.WRONG_SHA === 'true' ? '${"b".repeat(40)}' : '${sha}') + '\\trefs/heads/main');
+  case 'fetch':
+    if (JSON.stringify(args) !== JSON.stringify(['-c', 'credential.helper=', 'fetch', '--quiet', 'origin', 'refs/heads/main:refs/remotes/origin/main'])) process.exit(45);
+    break;
+  case 'merge-base':
+    if (JSON.stringify(command) !== JSON.stringify(['merge-base', '--is-ancestor', '${sha}', process.env.REMOTE_SHA || '${sha}'])) process.exit(45);
+    if (process.env.UNRELATED_HISTORY === 'true') process.exit(1);
     break;
   default: process.exit(45);
 }
@@ -105,8 +116,14 @@ test("valid manual probe uses only the scoped marker and ordinary main push", t 
   assert.deepEqual(result.calls.find(args => args.includes("push")), [
     "-c", "credential.helper=", "push", "origin", "HEAD:refs/heads/main"
   ]);
+  assert.deepEqual(result.calls.slice(-4), [
+    ["-c", "credential.helper=", "push", "origin", "HEAD:refs/heads/main"],
+    ["-c", "credential.helper=", "fetch", "--quiet", "origin", "refs/heads/main:refs/remotes/origin/main"],
+    ["rev-parse", "refs/remotes/origin/main"],
+    ["merge-base", "--is-ancestor", sha, sha]
+  ]);
   assert.ok(result.calls.every(args => args.every(arg => !arg.startsWith("--force") && arg !== "-f")));
-  assert.match(result.stdout, new RegExp(`Verified main at ${sha}, marker app-write-probe-123-1.txt`));
+  assert.equal(result.stdout, `Verified probe commit ${sha} in main at ${sha}, marker app-write-probe-123-1.txt\n`);
 });
 
 test("rerun attempts use distinct markers", t => {
@@ -137,12 +154,17 @@ for (const [label, overrides, message] of [
   });
 }
 
-for (const operation of ["clone", "commit", "push", "ls-remote"]) {
+for (const operation of ["clone", "commit", "push", "fetch", "merge-base"]) {
   test(`${operation} failure propagates without retry`, t => {
     const result = runProbe(t, { FAIL_OPERATION: operation });
-    assert.equal(result.status, 42);
+    assert.equal(result.status, operation === "merge-base" ? 1 : 42);
     assert.equal(result.calls.filter(args => args.includes(operation)).length, 1);
-    assert.ok(!result.stdout.includes("Verified main"));
+    assert.ok(!result.stdout.includes("Verified probe commit"));
+    if (operation === "merge-base") {
+      assert.match(result.stderr, /Push completed, but fetched main does not contain the probe commit/);
+    }
+    if (operation === "push") assert.ok(!result.calls.some(args => args.includes("fetch")));
+    if (operation === "fetch") assert.ok(!result.calls.some(args => args.includes("merge-base")));
     if (["clone", "commit"].includes(operation)) {
       assert.ok(!result.calls.some(args => args.includes("push")));
     }
@@ -162,9 +184,29 @@ for (const [label, overrides, message] of [
   });
 }
 
-test("remote SHA mismatch is a failure, never silently reported as success", t => {
-  const result = runProbe(t, { WRONG_SHA: "true" });
+test("a fetched descendant of the probe commit is a success", t => {
+  const result = runProbe(t, { REMOTE_SHA: descendantSha });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(result.calls.at(-1), ["merge-base", "--is-ancestor", sha, descendantSha]);
+  assert.equal(result.stdout, `Verified probe commit ${sha} in main at ${descendantSha}, marker app-write-probe-123-1.txt\n`);
+});
+
+for (const remote of ["invalid", "a".repeat(39), "a".repeat(41), "g".repeat(40)]) {
+  test(`invalid fetched main SHA (${remote.length} characters) fails before ancestry verification`, t => {
+    const result = runProbe(t, { REMOTE_SHA: remote });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Invalid fetched main SHA/);
+    assert.equal(result.calls.filter(args => args.includes("push")).length, 1);
+    assert.equal(result.calls.filter(args => args.includes("fetch")).length, 1);
+    assert.ok(!result.calls.some(args => args.includes("merge-base")));
+    assert.ok(!result.stdout.includes("Verified probe commit"));
+  });
+}
+
+test("unrelated fetched history is a failure, never silently reported as success", t => {
+  const result = runProbe(t, { REMOTE_SHA: descendantSha, UNRELATED_HISTORY: "true" });
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /main no longer points at the probe commit/);
-  assert.ok(!result.stdout.includes("Verified main"));
+  assert.match(result.stderr, /Push completed, but fetched main does not contain the probe commit/);
+  assert.deepEqual(result.calls.at(-1), ["merge-base", "--is-ancestor", sha, descendantSha]);
+  assert.ok(!result.stdout.includes("Verified probe commit"));
 });

@@ -47,6 +47,8 @@ commit="$(git rev-parse HEAD)"
 [[ "$commit" =~ ^[0-9a-f]{40}$ ]] || fail 'Invalid probe commit SHA'
 git -c credential.helper= push origin HEAD:refs/heads/main
 
-remote="$(git -c credential.helper= ls-remote origin refs/heads/main)"
-[[ "$remote" == "$commit"$'\trefs/heads/main' ]] || fail 'Push completed, but main no longer points at the probe commit'
-printf 'Verified main at %s, marker %s\n' "$commit" "$marker"
+git -c credential.helper= fetch --quiet origin refs/heads/main:refs/remotes/origin/main
+remote="$(git rev-parse refs/remotes/origin/main)"
+[[ "$remote" =~ ^[0-9a-f]{40}$ ]] || fail 'Invalid fetched main SHA'
+git merge-base --is-ancestor "$commit" "$remote" || fail 'Push completed, but fetched main does not contain the probe commit'
+printf 'Verified probe commit %s in main at %s, marker %s\n' "$commit" "$remote" "$marker"

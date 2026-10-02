@@ -18,7 +18,7 @@ const realGit = realpathSync(lookup.stdout.trim());
 
 // This is an allowlist, not a general URL rewriter. All other Git calls fail closed.
 const wrapper = `#!${process.execPath}
-import { appendFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { appendFileSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 const env = process.env;
@@ -56,26 +56,48 @@ if (args.length === 9 && same([
     ['add', '--', marker], ['diff', '--cached', '--name-only'],
     ['commit', '-m', 'Probe GitHub App write access (' + env.GITHUB_RUN_ID + '/' + env.GITHUB_RUN_ATTEMPT + ')'],
     ['rev-parse', 'HEAD'],
+    ['rev-parse', 'refs/remotes/origin/main'],
     ['-c', 'credential.helper=', 'push', 'origin', 'HEAD:refs/heads/main'],
-    ['-c', 'credential.helper=', 'ls-remote', 'origin', 'refs/heads/main']
+    ['-c', 'credential.helper=', 'fetch', '--quiet', 'origin', 'refs/heads/main:refs/remotes/origin/main']
   ].some(same);
-  if (args.includes('push') || args.includes('ls-remote')) {
+  if (args[0] === 'merge-base') {
+    const probe = readFileSync(env.PROBE_SHA_RECORD, 'utf8');
+    const fetched = checked(['rev-parse', 'refs/remotes/origin/main']);
+    if (!/^[0-9a-f]{40}$/.test(probe) || !/^[0-9a-f]{40}$/.test(fetched)) process.exit(96);
+    allowed = same(['merge-base', '--is-ancestor', probe, fetched]) &&
+      fetched === checked(['--git-dir', env.LOCAL_BARE, 'rev-parse', 'refs/heads/main']);
+  }
+  if (args.includes('push') || args.includes('fetch') || args[0] === 'merge-base') {
     if (checked(['config', '--get', 'remote.origin.url']) !== env.LOCAL_BARE) process.exit(92);
+    const pushUrl = invoke(['config', '--get-all', 'remote.origin.pushurl']);
+    if (pushUrl.status !== 1 || pushUrl.stdout.trim() !== '') process.exit(92);
   }
 }
 if (!allowed) process.exit(93);
+const advanceWriter = afterPush => {
+  if (checked(['config', '--get', 'remote.origin.url'], env.WRITER) !== env.LOCAL_BARE) process.exit(92);
+  const pushUrl = invoke(['config', '--get-all', 'remote.origin.pushurl'], env.WRITER);
+  if (pushUrl.status !== 1 || pushUrl.stdout.trim() !== '') process.exit(92);
+  if (afterPush) {
+    // Base the ordinary descendant push on the probe commit, not the stale writer clone.
+    checked(['-c', 'credential.helper=', 'fetch', '--quiet', 'origin', 'refs/heads/main:refs/remotes/origin/main'], env.WRITER);
+    checked(['reset', '--hard', 'refs/remotes/origin/main'], env.WRITER);
+  }
+  writeFileSync(join(env.WRITER, 'concurrent.txt'), 'concurrent local writer\\n');
+  checked(['add', '--', 'concurrent.txt'], env.WRITER);
+  checked(['commit', '-m', 'Concurrent local fixture update'], env.WRITER);
+  checked(['push', 'origin', 'HEAD:refs/heads/main'], env.WRITER);
+  writeFileSync(env.CONCURRENT_SHA_RECORD, checked(['rev-parse', 'HEAD'], env.WRITER));
+};
 if (args.includes('push')) {
   writeFileSync(env.PROBE_SHA_RECORD, checked(['rev-parse', 'HEAD']));
-  if (env.CONCURRENT === 'true') {
+  if (env.CONCURRENT === 'before') {
     // A real local writer advances the bare main immediately before the probe's ordinary push.
-    writeFileSync(join(env.WRITER, 'concurrent.txt'), 'concurrent local writer\\n');
-    checked(['add', '--', 'concurrent.txt'], env.WRITER);
-    checked(['commit', '-m', 'Concurrent local fixture update'], env.WRITER);
-    checked(['push', 'origin', 'HEAD:refs/heads/main'], env.WRITER);
-    writeFileSync(env.CONCURRENT_SHA_RECORD, checked(['rev-parse', 'HEAD'], env.WRITER));
+    advanceWriter(false);
   }
 }
 const result = invoke(delegated);
+if (args.includes('push') && result.status === 0 && env.CONCURRENT === 'after') advanceWriter(true);
 appendFileSync(env.GIT_LOG, JSON.stringify({ args, status: result.status }) + '\\n');
 process.stdout.write(result.stdout);
 process.stderr.write(result.stderr);
@@ -151,7 +173,7 @@ if (JSON.stringify(process.argv.slice(2)) !== JSON.stringify(['-d'])) process.ex
 console.log(mkdtempSync(join(process.env.TMPDIR, 'tmp.')));
 `, { mode: 0o700 });
   const remote = args => git(["--git-dir", bare, ...args]);
-  const run = (attempt = "1", concurrent = false) => {
+  const run = (attempt = "1", concurrent = "none") => {
     const log = join(root, `calls-${attempt}`);
     const workdir = join(root, `workdir-${attempt}`);
     const probeSha = join(root, `probe-sha-${attempt}`);
@@ -200,9 +222,13 @@ test("real local Git writes one marker commit and attempt 2 preserves both marke
     assert.equal(f.remote(["rev-list", "--parents", "-n", "1", "main"]), `${head} ${parent}`);
     assert.equal(f.remote(["diff-tree", "--no-commit-id", "--name-status", "-r", parent, head]), `A\t${marker}`);
     assert.equal(f.remote(["rev-list", "--count", "main"]), String(Number(attempt) + 1));
-    assert.match(result.stdout, new RegExp(`Verified main at ${head}, marker ${marker}`));
+    assert.ok(result.stdout.endsWith(`Verified probe commit ${result.probe} in main at ${head}, marker ${marker}\n`));
     assert.equal(result.calls.find(call => call.args.includes("push")).status, 0);
-    assert.equal(result.calls.filter(call => call.args.includes("ls-remote")).length, 1);
+    assert.deepEqual(result.calls.slice(-3), [
+      { args: ["-c", "credential.helper=", "fetch", "--quiet", "origin", "refs/heads/main:refs/remotes/origin/main"], status: 0 },
+      { args: ["rev-parse", "refs/remotes/origin/main"], status: 0 },
+      { args: ["merge-base", "--is-ancestor", result.probe, head], status: 0 }
+    ]);
     markers.push(marker);
     assert.deepEqual(f.tree(), [...Object.keys(f.files), ...markers].sort());
     for (const [index, name] of markers.entries()) {
@@ -214,7 +240,7 @@ test("real local Git writes one marker commit and attempt 2 preserves both marke
 
 test("real local Git rejects a stale-base push without retry or token output", t => {
   const f = fixture(t);
-  const result = f.run("1", true);
+  const result = f.run("1", "before");
   assert.notEqual(result.status, 0);
   assert.equal(result.signal, null);
   assert.match(result.stderr, /\[rejected\].*(fetch first|non-fast-forward)/);
@@ -222,8 +248,8 @@ test("real local Git rejects a stale-base push without retry or token output", t
   assert.equal(push.status, 1, "real Git rejected the ordinary push");
   assert.deepEqual(push.args, ["-c", "credential.helper=", "push", "origin", "HEAD:refs/heads/main"]);
   assert.equal(result.calls.filter(call => call.args[0] === "commit").length, 1);
-  assert.ok(!result.calls.some(call => call.args.includes("ls-remote")));
-  assert.ok(!result.stdout.includes("Verified main"));
+  assert.ok(!result.calls.some(call => call.args.includes("fetch") || call.args.includes("merge-base")));
+  assert.ok(!result.stdout.includes("Verified probe commit"));
   const concurrent = readFileSync(result.concurrentSha, "utf8");
   assert.equal(f.remote(["rev-parse", "main"]), concurrent);
   assert.notEqual(concurrent, result.probe);
@@ -232,4 +258,30 @@ test("real local Git rejects a stale-base push without retry or token output", t
   assert.equal(f.remote(["diff-tree", "--no-commit-id", "--name-status", "-r", f.initial, concurrent]), "A\tconcurrent.txt");
   assert.equal(f.remote(["show", "main:concurrent.txt"]), "concurrent local writer");
   assert.deepEqual(f.tree(), [...Object.keys(f.files), "concurrent.txt"].sort());
+});
+
+test("real local Git verifies a concurrent descendant after the successful probe push", t => {
+  const f = fixture(t);
+  const result = f.run("1", "after");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.signal, null);
+  const concurrent = readFileSync(result.concurrentSha, "utf8");
+  const marker = "app-write-probe-123-1.txt";
+  assert.notEqual(concurrent, result.probe);
+  assert.equal(f.remote(["rev-parse", "main"]), concurrent);
+  assert.equal(f.remote(["rev-list", "--parents", "-n", "1", result.probe]), `${result.probe} ${f.initial}`);
+  assert.equal(f.remote(["rev-list", "--parents", "-n", "1", "main"]), `${concurrent} ${result.probe}`);
+  assert.equal(f.remote(["rev-list", "--count", "main"]), "3");
+  assert.equal(f.remote(["diff-tree", "--no-commit-id", "--name-status", "-r", f.initial, result.probe]), `A\t${marker}`);
+  assert.equal(f.remote(["diff-tree", "--no-commit-id", "--name-status", "-r", result.probe, concurrent]), "A\tconcurrent.txt");
+  assert.equal(f.remote(["show", `main:${marker}`]), "GitHub Actions run 123, attempt 1");
+  assert.equal(f.remote(["show", "main:concurrent.txt"]), "concurrent local writer");
+  assert.deepEqual(f.tree(), [...Object.keys(f.files), marker, "concurrent.txt"].sort());
+  assert.equal(result.calls.find(call => call.args.includes("push")).status, 0);
+  assert.deepEqual(result.calls.slice(-3), [
+    { args: ["-c", "credential.helper=", "fetch", "--quiet", "origin", "refs/heads/main:refs/remotes/origin/main"], status: 0 },
+    { args: ["rev-parse", "refs/remotes/origin/main"], status: 0 },
+    { args: ["merge-base", "--is-ancestor", result.probe, concurrent], status: 0 }
+  ]);
+  assert.ok(result.stdout.endsWith(`Verified probe commit ${result.probe} in main at ${concurrent}, marker ${marker}\n`));
 });

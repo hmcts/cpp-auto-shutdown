@@ -2,7 +2,7 @@
 
 ## Commands
 
-- Install test-only schema dependencies with `npm ci` (or `npm install`), then run all
+- Install test-only dependencies with `npm ci --ignore-scripts` (or `npm install --ignore-scripts`), then run all
   tests with `npm test`. Run only dashboard unit tests (`tests/dashboard/**/*.test.js`, no dependencies)
   with `npm run test:dashboard`, or only data validation (`tests/data-validation/**/*.test.js`) with
   `npm run test:data`. Run offline authentication checks (`tests/authentication/`) with

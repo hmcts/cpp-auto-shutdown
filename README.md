@@ -24,14 +24,14 @@ render and says so rather than showing stale data as current.
 
 ```shell
 npm run serve     # http://localhost:8000
-npm ci            # install test-only validation dependencies
+npm ci --ignore-scripts  # install test-only dependencies without lifecycle scripts
 npm test          # all offline suites, never the live write probe
 npm run test:dashboard  # dashboard unit tests only (tests/dashboard/, no dependencies needed)
 npm run test:data       # schema/data validation only (tests/data-validation/)
 npm run test:auth       # offline probe safety tests only (tests/authentication/)
 ```
 
-`npm install` may be used instead of `npm ci`. The static dashboard itself does not require
+`npm install --ignore-scripts` may be used instead. The static dashboard itself does not require
 these packages to be served.
 
 Add `?ref=BRANCH-NAME` to read data from a branch that has not been merged yet, e.g.
@@ -45,6 +45,8 @@ pushes to `main` that touch `docs/**`.
 `config/stacks.yaml` is stack intent, `config/exceptions.yaml` is workflow-owned dated
 requests, and `state/environments/*.json` is what live verification observed. They are kept
 separate so configuration can never be mistaken for observation.
+All stacks use the shared baseline defined in [docs/js/schedule.js](docs/js/schedule.js),
+not schedule fields in the stack configuration.
 
 ### Authentication checks and manual write proof
 
@@ -95,10 +97,13 @@ After reviewed merge and prerequisite verification, an authorized operator can
 dispatch the workflow from `main`, select the acknowledgement and obtain environment
 approval. It creates a short-lived repository-scoped token, verifies the App slug
 and installation ID, then writes `app-write-probe-<run-id>-<attempt>.txt` through an
-ordinary non-force push. The run prints the marker and verified commit SHA without
-credentials. Capture the run link, App identity and SHA as evidence. A stale-base
-rejection or changed remote SHA is a failure, not permission to force-push or weaken
-rules. Tokens are revoked at job completion by the token action.
+ordinary non-force push. It then fetches `main` and verifies that the fetched history
+contains the probe commit. A subsequent legitimate fast-forward is accepted.
+The run prints the marker, probe commit SHA and observed main SHA without credentials.
+Capture the run link, App identity and both SHAs as evidence. A stale-base push
+rejection, failed fetch or history that excludes the probe commit is a failure, not
+permission to force-push or weaken rules. Tokens are revoked at job completion by
+the token action.
 
 Retain the workflow as manual-only after proof. Remove markers only through a
 normal reviewed PR if cleanup is needed. Root markers do not match the Pages
