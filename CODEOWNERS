@@ -1,1 +1,9 @@
-* @hmcts/cpp-development
+# Default owner for dashboard, documentation, workflows, and scripts.
+*                         @hmcts/cpp-development
+
+# Human-edited stack definitions, reviewed by the exception approvers.
+/config/stacks.yaml       @hmcts/cpp-auto-shutdown-approvers
+
+# Automation-written paths. Manual PR edits require an approver's review.
+/config/exceptions.yaml   @hmcts/cpp-auto-shutdown-approvers
+/state/                   @hmcts/cpp-auto-shutdown-approvers
