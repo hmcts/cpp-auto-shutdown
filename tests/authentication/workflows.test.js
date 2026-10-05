@@ -41,48 +41,40 @@ test("live probe is manual, main-only, acknowledged and environment-gated", () =
   assert.ok(job.steps.every(step => !step["continue-on-error"]));
 });
 
-test("offline CI runs distinct suites using explicit directory inclusion", () => {
-  const checkNames = [];
-  for (const [name, directory, command] of [
-    ["dashboard-tests", "dashboard", "npm run test:dashboard"],
-    ["data-validation", "data-validation", "npm run test:data"],
-    ["authentication-tests", "authentication", "npm run test:auth"]
-  ]) {
-    const ci = workflow(name);
-    assert.deepEqual(ci.permissions, { contents: "read" });
-    for (const event of ["push", "pull_request"]) {
-      const paths = ci.on[event].paths;
-      assert.ok(paths.includes(`tests/${directory}/**`));
-      assert.ok(!paths.includes("tests/**"));
-      assert.ok(paths.every(path => !path.startsWith("!")));
-      assert.ok(paths.includes(`.github/workflows/${name}.yaml`));
-    }
-    for (const [id, job] of Object.entries(ci.jobs)) {
-      checkNames.push(job.name || id);
-      assert.equal(job.environment, undefined);
-      const runs = job.steps.map(step => step.run).filter(Boolean);
-      assert.ok(runs.includes(command));
-      assert.ok(!runs.includes("npm test"));
-      assert.ok(!runs.includes("bash scripts/app-write-probe.sh"));
-      assert.ok(job.steps.every(step => !step.uses?.includes("create-github-app-token")));
-      for (const run of runs.filter(run => /^npm (ci|install)\b/.test(run))) {
-        assert.equal(run, "npm ci --ignore-scripts", "dependency installation must not execute lifecycle scripts");
-      }
-      if (name !== "dashboard-tests") assert.ok(runs.includes("npm ci --ignore-scripts"));
-    }
-  }
-  assert.equal(new Set(checkNames).size, checkNames.length, "suite job check names must be unique");
-  const authPaths = workflow("authentication-tests").on.push.paths;
-  assert.ok(authPaths.includes("scripts/app-write-probe.sh"));
-  assert.ok(authPaths.includes(".github/workflows/github-app-write-probe.yaml"));
+test("authentication CI uses main-only pushes and focused path filters", () => {
+  const ci = workflow("authentication-tests");
+  assert.deepEqual(Object.keys(ci.on), ["push", "pull_request", "workflow_dispatch"]);
+  assert.deepEqual(ci.on.push.branches, ["main"]);
+  assert.equal(ci.on.pull_request.branches, undefined);
+  const expectedPaths = [
+    "tests/authentication/**",
+    "scripts/app-write-probe.sh",
+    ".github/workflows/github-app-write-probe.yaml",
+    ".github/workflows/authentication-tests.yaml",
+    ".github/workflows/deploy-github-pages.yaml",
+    "package.json"
+  ];
   for (const event of ["push", "pull_request"]) {
-    for (const name of ["dashboard-tests", "data-validation", "deploy-github-pages"]) {
-      assert.ok(workflow("authentication-tests").on[event].paths.includes(`.github/workflows/${name}.yaml`),
-        "contract tests must run when an inspected workflow changes");
-    }
+    assert.deepEqual(ci.on[event].paths, expectedPaths);
   }
-  for (const name of ["dashboard-tests", "data-validation"]) {
-    assert.ok(!workflow(name).on.push.paths.includes("tests/authentication/**"));
+});
+
+test("authentication CI runs only its offline suite without privileged credentials", () => {
+  const ci = workflow("authentication-tests");
+  assert.deepEqual(ci.permissions, { contents: "read" });
+  assert.deepEqual(Object.keys(ci.jobs), ["authentication-tests"]);
+  const job = ci.jobs["authentication-tests"];
+  assert.equal(job.environment, undefined);
+  assert.equal(job.steps[0].with["persist-credentials"], false);
+  const runs = job.steps.map(step => step.run).filter(Boolean);
+  assert.ok(runs.includes("npm run test:auth"));
+  assert.ok(runs.includes("bash -n scripts/app-write-probe.sh"));
+  assert.ok(runs.includes("npm ci --ignore-scripts"));
+  assert.ok(!runs.includes("npm test"));
+  assert.ok(!runs.includes("bash scripts/app-write-probe.sh"));
+  assert.ok(job.steps.every(step => !step.uses?.includes("create-github-app-token")));
+  for (const run of runs.filter(run => /^npm (ci|install)\b/.test(run))) {
+    assert.equal(run, "npm ci --ignore-scripts", "dependency installation must not execute lifecycle scripts");
   }
 });
 

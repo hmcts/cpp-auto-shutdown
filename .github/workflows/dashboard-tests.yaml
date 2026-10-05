@@ -5,6 +5,8 @@ name: Dashboard tests
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'config/stacks.yaml'
       - 'config/exceptions.yaml'

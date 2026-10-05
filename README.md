@@ -54,9 +54,13 @@ Authentication CI runs only `npm run test:auth`. It uses dummy credentials and s
 Git commands and isolated local bare repositories, never a real installation token
 or a remote push. Dashboard and data
 validation CI each run their own suite with explicit test-directory path filters.
-Shared package changes can intentionally trigger multiple suites. Authentication CI
-also runs when workflows inspected by its contract tests change. The suites have
-distinct job check names. These path-filtered checks must not be made universally
+Dashboard and authentication CI run automatically on relevant PR changes and relevant
+pushes to `main`, not feature-branch pushes. Package manifest changes can intentionally
+trigger multiple suites. Authentication CI watches its tests, probe script, its own
+workflow, the manual probe workflow, the Pages workflow and `package.json`. It does not
+run for changes only to dashboard/data-validation workflows or `package-lock.json`.
+The Pages workflow remains watched because its trigger contract is checked by the
+authentication suite. The suites have distinct job check names. These path-filtered checks must not be made universally
 required without an always-reporting gate, otherwise unrelated PRs can stay pending.
 
 The `Manual GitHub App write probe` workflow is separate and uses `workflow_dispatch`

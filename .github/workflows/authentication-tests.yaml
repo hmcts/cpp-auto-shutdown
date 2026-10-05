@@ -2,27 +2,23 @@ name: Authentication tests
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'tests/authentication/**'
       - 'scripts/app-write-probe.sh'
       - '.github/workflows/github-app-write-probe.yaml'
       - '.github/workflows/authentication-tests.yaml'
-      - '.github/workflows/dashboard-tests.yaml'
-      - '.github/workflows/data-validation.yaml'
       - '.github/workflows/deploy-github-pages.yaml'
       - 'package.json'
-      - 'package-lock.json'
   pull_request:
     paths:
       - 'tests/authentication/**'
       - 'scripts/app-write-probe.sh'
       - '.github/workflows/github-app-write-probe.yaml'
       - '.github/workflows/authentication-tests.yaml'
-      - '.github/workflows/dashboard-tests.yaml'
-      - '.github/workflows/data-validation.yaml'
       - '.github/workflows/deploy-github-pages.yaml'
       - 'package.json'
-      - 'package-lock.json'
   workflow_dispatch:
 
 permissions:
