@@ -5,13 +5,19 @@ name: Dashboard tests
 
 on:
   push:
+    branches:
+      - main
     paths:
+      - 'config/stacks.yaml'
+      - 'config/exceptions.yaml'
       - 'docs/js/**'
       - 'tests/dashboard/**'
       - 'package.json'
       - '.github/workflows/dashboard-tests.yaml'
   pull_request:
     paths:
+      - 'config/stacks.yaml'
+      - 'config/exceptions.yaml'
       - 'docs/js/**'
       - 'tests/dashboard/**'
       - 'package.json'

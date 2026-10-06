@@ -40,7 +40,7 @@ jobs:
           node-version: '22'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Validate data against schemas
         run: npm run test:data

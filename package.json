@@ -5,9 +5,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:dashboard && npm run test:data",
-    "test:dashboard": "node --test tests/dashboard/**/*.test.js",
-    "test:data": "node --test tests/data-validation/**/*.test.js",
+    "test": "npm run test:dashboard && npm run test:data && npm run test:auth",
+    "test:dashboard": "node --test \"tests/dashboard/**/*.test.js\"",
+    "test:data": "node --test \"tests/data-validation/**/*.test.js\"",
+    "test:auth": "node --test \"tests/authentication/**/*.test.js\"",
     "serve": "python3 -m http.server 8000 --directory docs"
   },
   "license": "MIT",
