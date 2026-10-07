@@ -30,6 +30,11 @@ jobs:
           ref: ${{ github.sha }}
           persist-credentials: false
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
       - name: Check administrator configuration
         shell: bash
         env:
@@ -43,12 +48,44 @@ jobs:
           [[ -n "$PRIVATE_KEY" ]] || { echo 'App private key is missing' >&2; exit 1; }
           [[ "$EXPECTED_INSTALLATION_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'Expected installation ID is missing or invalid' >&2; exit 1; }
 
+      - name: Decode and validate App private key
+        id: app-key
+        shell: bash
+        env:
+          PRIVATE_KEY_BASE64: ${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}
+        run: |
+          set +x
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import { createPrivateKey, randomUUID } from 'node:crypto';
+          import { appendFileSync } from 'node:fs';
+          try {
+            const encoded = (process.env.PRIVATE_KEY_BASE64 || '').replace(/\s/g, '');
+            if (!encoded || !/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) throw new Error();
+            const decoded = Buffer.from(encoded, 'base64');
+            if (decoded.toString('base64') !== encoded) throw new Error();
+            const text = decoded.toString('utf8');
+            if (!/^-----BEGIN (RSA )?PRIVATE KEY-----\r?\n/.test(text)) throw new Error();
+            const key = createPrivateKey(text);
+            if (key.asymmetricKeyType !== 'rsa') throw new Error();
+            const pem = key.export({ type: 'pkcs8', format: 'pem' });
+            const escape = value => value.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
+            for (const line of pem.trim().split('\n')) console.log(`::add-mask::${escape(line)}`);
+            console.log(`::add-mask::${escape(pem)}`);
+            const delimiter = randomUUID();
+            appendFileSync(process.env.GITHUB_OUTPUT, `private-key<<${delimiter}\n${pem}${delimiter}\n`);
+          } catch {
+            console.error('App private key must be base64-encoded PEM containing a valid RSA private key');
+            process.exitCode = 1;
+          }
+          NODE
+
       - name: Create repository-scoped installation token
         id: app-token
         uses: actions/create-github-app-token@v3
         with:
           app-id: ${{ vars.CPP_GITHUB_MANAGEMENT_APP_ID }}
-          private-key: ${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}
+          private-key: ${{ steps.app-key.outputs.private-key }}
           owner: hmcts
           repositories: cpp-auto-shutdown
           permission-contents: write
