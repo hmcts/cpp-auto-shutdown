@@ -83,11 +83,14 @@ Before any live run, an authorized administrator must:
 
     | Environment setting | Value |
     | --- | --- |
-    | Variable `CPP_GITHUB_MANAGEMENT_APP_ID` | Verified numeric App ID |
-    | Variable `CPP_GITHUB_MANAGEMENT_INSTALLATION_ID` | Verified numeric installation ID |
+    | Secret `CPP_GITHUB_MANAGEMENT_APP_ID` | Verified numeric App ID, stored unchanged without base64 encoding |
+    | Secret `CPP_GITHUB_MANAGEMENT_INSTALLATION_ID` | Verified numeric installation ID, stored unchanged without base64 encoding |
     | Secret `CPP_GITHUB_MANAGEMENT_PRIVATE_KEY` | Approved base64-encoded PEM private key, matching the ADO credential format |
 
-    Keep the key exclusively in this protected environment. Do not place it in a
+    Keep all three values exclusively in this protected environment's secrets,
+    not environment variables. Remove any same-name variables after provisioning
+    the secrets. GitHub masks the configured secret values in workflow logs.
+    Do not place them in a
     repository or organization secret accessible to arbitrary branch workflows.
     The key can mint other tokens for the App, so repository scoping in this workflow
     does not replace protection of the key itself.
