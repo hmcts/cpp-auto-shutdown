@@ -85,17 +85,21 @@ Before any live run, an authorized administrator must:
     | --- | --- |
     | Variable `CPP_GITHUB_MANAGEMENT_APP_ID` | Verified numeric App ID |
     | Variable `CPP_GITHUB_MANAGEMENT_INSTALLATION_ID` | Verified numeric installation ID |
-    | Secret `CPP_GITHUB_MANAGEMENT_PRIVATE_KEY` | Approved PEM private key |
+    | Secret `CPP_GITHUB_MANAGEMENT_PRIVATE_KEY` | Approved base64-encoded PEM private key, matching the ADO credential format |
 
     Keep the key exclusively in this protected environment. Do not place it in a
     repository or organization secret accessible to arbitrary branch workflows.
     The key can mint other tokens for the App, so repository scoping in this workflow
     does not replace protection of the key itself.
 
-    The ADO `cpp-ghauth` key is base64 encoded. The token action expects PEM, so any
-    conversion/provisioning must be performed securely by the administrator, not
-    through committed files, logs or chat. Do not use a PAT, another App, or the
-    default `GITHUB_TOKEN` as a substitute.
+    Copy the approved base64-encoded `github-app-priv-key` value used by ADO
+    `cpp-ghauth` unchanged into this environment secret. The workflow decodes and
+    validates an RSA PEM key at runtime, masks the decoded key and passes it to
+    the token action using a runner step output. Invalid input fails before token
+    creation with a generic error. Encoding is not encryption: never put either
+    representation into committed files, logs or chat. Raw PEM is not accepted by
+    this secret contract. Do not use a PAT, another App, or the default
+    `GITHUB_TOKEN` as a substitute.
 
 After reviewed merge and prerequisite verification, an authorized operator can
 dispatch the workflow from `main`, select the acknowledgement and obtain environment
