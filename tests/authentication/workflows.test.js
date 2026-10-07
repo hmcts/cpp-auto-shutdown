@@ -34,13 +34,15 @@ test("live probe is manual, main-only, acknowledged and environment-gated", () =
   assert.ok(decode.run.startsWith("set +x\nset -euo pipefail\n"));
   const configuration = job.steps.find(step => step.name === "Check administrator configuration");
   assert.ok(job.steps.indexOf(configuration) < job.steps.indexOf(app));
+  assert.equal(configuration.env.APP_ID, "${{ secrets.CPP_GITHUB_MANAGEMENT_APP_ID }}");
   assert.equal(configuration.env.PRIVATE_KEY, "${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}");
+  assert.equal(configuration.env.EXPECTED_INSTALLATION_ID, "${{ secrets.CPP_GITHUB_MANAGEMENT_INSTALLATION_ID }}");
   for (const input of ["APP_ID", "PRIVATE_KEY", "EXPECTED_INSTALLATION_ID"]) {
     assert.ok(configuration.run.includes(`$${input}`));
   }
   assert.equal(app.uses, "actions/create-github-app-token@v3");
   assert.deepEqual(app.with, {
-    "app-id": "${{ vars.CPP_GITHUB_MANAGEMENT_APP_ID }}",
+    "app-id": "${{ secrets.CPP_GITHUB_MANAGEMENT_APP_ID }}",
     "private-key": "${{ steps.app-key.outputs.private-key }}",
     owner: "hmcts", repositories: "cpp-auto-shutdown", "permission-contents": "write"
   });
@@ -48,6 +50,7 @@ test("live probe is manual, main-only, acknowledged and environment-gated", () =
   assert.equal(job.steps.at(-1).env.APP_TOKEN, "${{ steps.app-token.outputs.token }}");
   assert.equal(job.steps.at(-1).env.APP_SLUG, "${{ steps.app-token.outputs.app-slug }}");
   assert.equal(job.steps.at(-1).env.APP_INSTALLATION_ID, "${{ steps.app-token.outputs.installation-id }}");
+  assert.equal(job.steps.at(-1).env.EXPECTED_INSTALLATION_ID, "${{ secrets.CPP_GITHUB_MANAGEMENT_INSTALLATION_ID }}");
   assert.equal(job.steps.at(-1).env.CONFIRM_WRITE, "${{ inputs.confirm_write }}");
   assert.ok(job.steps.every(step => !step["continue-on-error"]));
 });
