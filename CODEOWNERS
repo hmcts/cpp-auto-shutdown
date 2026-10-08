@@ -2,8 +2,8 @@
 *                         @hmcts/cpp-development
 
 # Human-edited stack definitions, reviewed by the exception approvers.
-/config/stacks.yaml       @hmcts/cpp-auto-shutdown-approvers
+/config/stacks.yaml       @hmcts/cpp-auto-shutdown-approvers @hmcts/platform-operations
 
 # Automation-written paths. Manual PR edits require an approver's review.
-/config/exceptions.yaml   @hmcts/cpp-auto-shutdown-approvers
-/state/                   @hmcts/cpp-auto-shutdown-approvers
+/config/exceptions.yaml   @hmcts/cpp-auto-shutdown-approvers @hmcts/platform-operations
+/state/                   @hmcts/cpp-auto-shutdown-approvers @hmcts/platform-operations
