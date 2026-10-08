@@ -60,7 +60,7 @@ async function temporarySamples(t) {
   await mkdir(join(directory, "config"));
   await mkdir(join(directory, "state/environments"), { recursive: true });
   await writeFile(join(directory, "config/stacks.yaml"), JSON.stringify(stacksDocument()));
-  await writeFile(join(directory, "config/exceptions.yaml"), JSON.stringify({ exceptions: [] }));
+  await writeFile(join(directory, "config/exceptions.yaml"), "exceptions: []\n");
   for (const environment of ["dev", "ste"]) {
     await writeFile(join(directory, `state/environments/${environment}.json`),
       JSON.stringify({ environment, stacks: {} }));
@@ -123,6 +123,30 @@ test("checked-in configuration and state satisfy their schemas", async () => {
 
 test("sample validation accepts empty stacks in every environment and empty exceptions", async t => {
   await validateSamples(await temporarySamples(t));
+});
+
+test("exception validation accepts an empty YAML array", async () => {
+  const [, validate] = await getValidators();
+  assert.doesNotThrow(() => validateExceptionDocument(parse("exceptions: []\n"), validate));
+});
+
+test("exception validation rejects missing, null and non-array exceptions", async () => {
+  const [, validate] = await getValidators();
+  const documents = [
+    ["{}\n", "required"],
+    ["exceptions:\n", "type"],
+    ["exceptions: {}\n", "type"],
+    ['exceptions: ""\n', "type"]
+  ];
+  for (const [yaml, keyword] of documents) {
+    assert.throws(() => validateExceptionDocument(parse(yaml), validate));
+    assert.ok(validate.errors.some(error =>
+      error.keyword === keyword &&
+      (keyword === "required"
+        ? error.params.missingProperty === "exceptions"
+        : error.instancePath === "/exceptions")),
+    `${yaml}: ${JSON.stringify(validate.errors)}`);
+  }
 });
 
 test("an additional invalid environment JSON file fails sample validation", async t => {
