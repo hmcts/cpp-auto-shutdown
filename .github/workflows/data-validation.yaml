@@ -5,6 +5,8 @@ name: Data validation
 
 on:
   push:
+    branches:
+      - main
     paths:
       - 'config/**'
       - 'state/environments/**'
