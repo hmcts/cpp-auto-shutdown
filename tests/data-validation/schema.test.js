@@ -1,13 +1,72 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFile, readdir, unlink, writeFile } from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parse } from "yaml";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const ajv = new Ajv2020({ allErrors: true, strict: true });
 addFormats(ajv);
+
+const projectDirectory = fileURLToPath(new URL("../../", import.meta.url));
+
+function stacksDocument() {
+  return {
+    defaults: {
+      timezone: "Europe/London", startup: "06:00", shutdown: "19:00",
+      weekdays_only: true, bank_holidays_source: "https://www.gov.uk/bank-holidays.json"
+    },
+    exception_windows: ["06:00-19:00", "06:00-21:00", "06:00-23:00", "24h"],
+    stacks: [{
+      id: "TESTSTACK", environment: "ste", components: ["AKS"],
+      owner: "Test Owner", used_for: "Schema validation", urls: [], notes: ""
+    }]
+  };
+}
+
+function exceptionsDocument() {
+  return {
+    exceptions: [{
+      request: 105, reference: "TEST-105", stacks: ["TESTSTACK"],
+      start: "2026-09-01", end: "2026-09-03", window: "24h",
+      requester: "Test Requester", approver: "Test Approver",
+      applied: true, justification: "Schema validation"
+    }]
+  };
+}
+
+function stateDocument() {
+  return {
+    environment: "ste",
+    stacks: {
+      TESTSTACK: {
+        stack: "TESTSTACK", stackComponents: ["AKS"], aggregateStatus: "started",
+        observedAt: "2026-09-09T09:30:00Z", sourcePipeline: 1, sourceRunId: 1,
+        components: {
+          aks: { requested: true, status: "started", verified: true, reason: "Healthy" },
+          iaas: null, paas: null
+        }
+      }
+    }
+  };
+}
+
+async function temporarySamples(t) {
+  const directory = await mkdtemp(join(tmpdir(), "data-validation-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  await mkdir(join(directory, "config"));
+  await mkdir(join(directory, "state/environments"), { recursive: true });
+  await writeFile(join(directory, "config/stacks.yaml"), JSON.stringify(stacksDocument()));
+  await writeFile(join(directory, "config/exceptions.yaml"), "exceptions: []\n");
+  for (const environment of ["dev", "ste"]) {
+    await writeFile(join(directory, `state/environments/${environment}.json`),
+      JSON.stringify({ environment, stacks: {} }));
+  }
+  return directory;
+}
 
 async function readJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -19,37 +78,38 @@ function getValidators() {
     "schemas/stacks.schema.json",
     "schemas/exceptions.schema.json",
     "schemas/environment-state.schema.json"
-  ].map(async path => ajv.compile(await readJson(path))));
+  ].map(async path => ajv.compile(await readJson(new URL(`../../${path}`, import.meta.url)))));
   return validatorsPromise;
 }
 
-function validateExceptionDocument(data, validate) {
+function validateExceptionDocument(data, validate, dataPath = "config/exceptions.yaml") {
   assert.equal(validate(data), true,
-    `config/exceptions.yaml: ${JSON.stringify(validate.errors)}`);
+    `${dataPath}: ${JSON.stringify(validate.errors)}`);
   for (const exception of data.exceptions) {
     assert.ok(exception.start <= exception.end,
-      `config/exceptions.yaml: request ${exception.request} has end ${exception.end} before start ${exception.start}`);
+      `${dataPath}: request ${exception.request} has end ${exception.end} before start ${exception.start}`);
   }
 }
 
-async function validateSamples() {
+async function validateSamples(directory = projectDirectory) {
   const [validateStacks, validateExceptions, validateState] = await getValidators();
-  const files = (await readdir("state/environments", { withFileTypes: true }))
+  const stateDirectory = join(directory, "state/environments");
+  const files = (await readdir(stateDirectory, { withFileTypes: true }))
     .filter(file => file.isFile() && file.name.endsWith(".json"))
     .map(file => file.name).sort();
   for (const name of ["dev.json", "ste.json"]) {
-    assert.ok(files.includes(name), `Missing state/environments/${name}`);
+    assert.ok(files.includes(name), `Missing ${join(stateDirectory, name)}`);
   }
   const cases = [
-    ["config/stacks.yaml", validateStacks, parse],
-    ["config/exceptions.yaml", validateExceptions, parse],
-    ...files.map(name => [`state/environments/${name}`, validateState, JSON.parse])
+    [join(directory, "config/stacks.yaml"), validateStacks, parse],
+    [join(directory, "config/exceptions.yaml"), validateExceptions, parse],
+    ...files.map(name => [join(stateDirectory, name), validateState, JSON.parse])
   ];
 
   for (const [dataPath, validate, decode] of cases) {
     const data = decode(await readFile(dataPath, "utf8"));
-    if (dataPath === "config/exceptions.yaml") {
-      validateExceptionDocument(data, validate);
+    if (validate === validateExceptions) {
+      validateExceptionDocument(data, validate, dataPath);
     } else {
       assert.equal(validate(data), true,
         `${dataPath}: ${JSON.stringify(validate.errors)}`);
@@ -61,19 +121,43 @@ test("checked-in configuration and state satisfy their schemas", async () => {
   await validateSamples();
 });
 
-test("an additional invalid environment JSON file fails sample validation", async () => {
-  const filename = `extra-invalid-${randomUUID()}.json`;
-  const path = `state/environments/${filename}`;
-  await writeFile(path, '{"environment":"invalid","stacks":{}}');
-  try {
-    await assert.rejects(validateSamples(), error => {
-      assert.ok(error.message.includes(filename), error.message);
-      assert.match(error.message, /"keyword":"enum"/);
-      return true;
-    });
-  } finally {
-    await unlink(path);
+test("sample validation accepts empty stacks in every environment and empty exceptions", async t => {
+  await validateSamples(await temporarySamples(t));
+});
+
+test("exception validation accepts an empty YAML array", async () => {
+  const [, validate] = await getValidators();
+  assert.doesNotThrow(() => validateExceptionDocument(parse("exceptions: []\n"), validate));
+});
+
+test("exception validation rejects missing, null and non-array exceptions", async () => {
+  const [, validate] = await getValidators();
+  const documents = [
+    ["{}\n", "required"],
+    ["exceptions:\n", "type"],
+    ["exceptions: {}\n", "type"],
+    ['exceptions: ""\n', "type"]
+  ];
+  for (const [yaml, keyword] of documents) {
+    assert.throws(() => validateExceptionDocument(parse(yaml), validate));
+    assert.ok(validate.errors.some(error =>
+      error.keyword === keyword &&
+      (keyword === "required"
+        ? error.params.missingProperty === "exceptions"
+        : error.instancePath === "/exceptions")),
+    `${yaml}: ${JSON.stringify(validate.errors)}`);
   }
+});
+
+test("an additional invalid environment JSON file fails sample validation", async t => {
+  const directory = await temporarySamples(t);
+  const filename = "extra-invalid.json";
+  await writeFile(join(directory, "state/environments", filename), '{"environment":"invalid","stacks":{}}');
+  await assert.rejects(validateSamples(directory), error => {
+    assert.ok(error.message.includes(filename), error.message);
+    assert.match(error.message, /"keyword":"enum"/);
+    return true;
+  });
 });
 
 const componentNames = [
@@ -82,9 +166,34 @@ const componentNames = [
   ["PaaS", "paas"]
 ];
 
+test("inline configuration, exceptions and populated state satisfy their schemas", async () => {
+  const validators = await getValidators();
+  const documents = [stacksDocument(), exceptionsDocument(), stateDocument()];
+  for (const [index, validate] of validators.entries()) {
+    assert.equal(validate(documents[index]), true, JSON.stringify(validate.errors));
+  }
+});
+
+test("state schema accepts empty stacks but rejects missing or non-object stacks", async () => {
+  const [, , validate] = await getValidators();
+  for (const environment of ["dev", "ste"]) {
+    assert.equal(validate({ environment, stacks: {} }), true, JSON.stringify(validate.errors));
+    assert.equal(validate({ environment }), false, "stacks is required even when empty");
+    assert.ok(validate.errors.some(error =>
+      error.keyword === "required" && error.params.missingProperty === "stacks"),
+    JSON.stringify(validate.errors));
+    for (const stacks of [null, [], ""]) {
+      assert.equal(validate({ environment, stacks }), false, "stacks must be an object");
+      assert.ok(validate.errors.some(error =>
+        error.instancePath === "/stacks" && error.keyword === "type"),
+      JSON.stringify(validate.errors));
+    }
+  }
+});
+
 function stateWithComponent(state, name, key) {
   const copy = structuredClone(state);
-  const record = copy.stacks.STECCM11;
+  const record = copy.stacks.TESTSTACK;
   const component = record.components.aks;
   record.stackComponents = [name];
   record.components = { aks: null, iaas: null, paas: null, [key]: component };
@@ -93,15 +202,15 @@ function stateWithComponent(state, name, key) {
 
 test("component membership requires an object for every used component and null for every unused one", async () => {
   const [, , validate] = await getValidators();
-  const state = JSON.parse(await readFile("state/environments/ste.json", "utf8"));
+  const state = stateDocument();
 
   for (const [name, key] of componentNames) {
     const used = stateWithComponent(state, name, key);
-    used.stacks.STECCM11.components[key].source = "pipeline";
+    used.stacks.TESTSTACK.components[key].source = "pipeline";
     assert.equal(validate(used), true, `${name}: ${JSON.stringify(validate.errors)}`);
 
     const usedComponentNull = structuredClone(used);
-    usedComponentNull.stacks.STECCM11.components[key] = null;
+    usedComponentNull.stacks.TESTSTACK.components[key] = null;
     assert.equal(validate(usedComponentNull), false, `${name} must be an object`);
     assert.ok(validate.errors.some(error =>
       error.instancePath.endsWith(`/components/${key}`) &&
@@ -110,8 +219,8 @@ test("component membership requires an object for every used component and null 
 
     const absentComponentObject = structuredClone(used);
     const [otherName, otherKey] = componentNames.find(([other]) => other !== name);
-    absentComponentObject.stacks.STECCM11.stackComponents = [otherName];
-    absentComponentObject.stacks.STECCM11.components[otherKey] = {
+    absentComponentObject.stacks.TESTSTACK.stackComponents = [otherName];
+    absentComponentObject.stacks.TESTSTACK.components[otherKey] = {
       requested: true, status: "started", verified: true, reason: "Healthy"
     };
     assert.equal(validate(absentComponentObject), false, `${name} must be null when absent`);
@@ -124,11 +233,11 @@ test("component membership requires an object for every used component and null 
 
 test("state records require all three component keys", async () => {
   const [, , validate] = await getValidators();
-  const state = JSON.parse(await readFile("state/environments/ste.json", "utf8"));
+  const state = stateDocument();
 
   for (const [name, key] of componentNames) {
     const withoutKey = stateWithComponent(state, name, key);
-    delete withoutKey.stacks.STECCM11.components[key];
+    delete withoutKey.stacks.TESTSTACK.components[key];
     assert.equal(validate(withoutKey), false, `missing ${key}`);
     assert.ok(validate.errors.some(error =>
       error.keyword === "required" && error.params.missingProperty === key),
@@ -138,9 +247,9 @@ test("state records require all three component keys", async () => {
 
 test("configuration and state reject out-of-range enum values", async () => {
   const [validateStacks, validateExceptions, validateState] = await getValidators();
-  const stacks = parse(await readFile("config/stacks.yaml", "utf8"));
-  const exceptions = parse(await readFile("config/exceptions.yaml", "utf8"));
-  const state = JSON.parse(await readFile("state/environments/ste.json", "utf8"));
+  const stacks = stacksDocument();
+  const exceptions = exceptionsDocument();
+  const state = stateDocument();
 
   const cases = [
     ["stack environment", validateStacks, stacks, data => { data.stacks[0].environment = "prod"; }],
@@ -149,11 +258,11 @@ test("configuration and state reject out-of-range enum values", async () => {
     ["exception window", validateExceptions, exceptions, data => { data.exceptions[0].window = "overnight"; }],
     ["state environment", validateState, state, data => { data.environment = "prod"; }],
     ["state component", validateState, state, data => {
-      data.stacks.STECCM11.stackComponents[0] = "VM";
-      data.stacks.STECCM11.components.aks = null;
+      data.stacks.TESTSTACK.stackComponents[0] = "VM";
+      data.stacks.TESTSTACK.components.aks = null;
     }],
-    ["aggregate status", validateState, state, data => { data.stacks.STECCM11.aggregateStatus = "unknown"; }],
-    ["component status", validateState, state, data => { data.stacks.STECCM11.components.aks.status = "unknown"; }]
+    ["aggregate status", validateState, state, data => { data.stacks.TESTSTACK.aggregateStatus = "unknown"; }],
+    ["component status", validateState, state, data => { data.stacks.TESTSTACK.components.aks.status = "unknown"; }]
   ];
   for (const [name, validate, original, mutate] of cases) {
     const invalid = structuredClone(original);
@@ -166,7 +275,7 @@ test("configuration and state reject out-of-range enum values", async () => {
 
 test("exception date windows cannot end before they start", async () => {
   const [, validateExceptions] = await getValidators();
-  const exceptions = parse(await readFile("config/exceptions.yaml", "utf8"));
+  const exceptions = exceptionsDocument();
   const reversed = structuredClone(exceptions);
   reversed.exceptions[0].start = "2026-09-10";
   reversed.exceptions[0].end = "2026-09-09";
