@@ -10,6 +10,7 @@
 # Configuration says when a stack SHOULD run; state/environments/*.json records
 # what live verification actually observed. The two are kept separate so intent
 # can never be mistaken for observation.
+# DTSPO-35062: Disposable CODEOWNERS enforcement test. Do not merge.
 
 defaults:
   timezone: Europe/London
