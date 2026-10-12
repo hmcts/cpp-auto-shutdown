@@ -61,3 +61,12 @@ test("merge rejects a changed state document that fails schema validation", t =>
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /schema|valid/i);
 });
+test("merge finds child observations inside pattern-downloaded artifact directories", t => {
+  const fix = fixture(t);
+  const paths = setup(fix);
+  writeObservation(paths.observations, "observation-artifact/observation-steccm43_123", observation());
+  const result = run(fix, paths);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(join(paths.scratch, "merge-result.json"), "utf8")).acceptedStacks,
+    ["STECCM43"]);
+});

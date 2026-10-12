@@ -76,3 +76,14 @@ test("validator accepts an empty directory and reports clone failures as faults"
   });
   assert.notEqual(failed.status, 0);
 });
+test("validator accepts artifact-name nesting and still rejects invalid nested records", t => {
+  const fix = fixture(t);
+  const { observations, scratch } = setup(fix);
+  const nested = writeObservation(observations, "observation-artifact-123/observation-steccm43_123",
+    observation({ aggregateStatus: "unknown" }));
+  const result = run(fix, observations, scratch);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(join(scratch, "validate-result.json"), "utf8")).rejectedStacks,
+    ["STECCM43"]);
+  assert.ok(readFileSync(nested, "utf8").includes("unknown"));
+});

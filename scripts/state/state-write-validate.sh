@@ -51,7 +51,7 @@ sorted="$scratch/observation-sorted.txt"
 survivors="$scratch/observation-survivors.txt"
 rejected_file="$scratch/rejected-stacks.txt"
 : > "$candidates"; : > "$rejected_file"
-find "$observations" -mindepth 2 -maxdepth 2 -type f -name observation.json | LC_ALL=C sort > "$files" || fail "cannot list observations"
+find "$observations" -type f -name observation.json | LC_ALL=C sort > "$files" || fail "cannot list observations"
 is_expected() { case ",$expected_ids," in *",$1,"*) return 0;; *) return 1;; esac; }
 while IFS= read -r file; do
   folder="$(basename "$(dirname "$file")")"

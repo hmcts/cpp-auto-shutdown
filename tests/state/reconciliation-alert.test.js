@@ -58,3 +58,11 @@ test("alert without Slack includes an error, run link, and summary without secre
   assert.ok(readFileSync(summary, "utf8").includes("https://github.com/hmcts/cpp-auto-shutdown/actions/runs/42"));
   assert.ok(!`${result.stdout}${result.stderr}`.includes(secret));
 });
+test("alert identifies exhausted reconciliation attempts", () => {
+  const result = spawnSync("bash", [alert, "--case", "reconciliation-failed"], {
+    cwd: root, encoding: "utf8", env: { ...process.env, SLACK_WEBHOOK_URL: "" }
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /::error::/);
+  assert.match(result.stdout, /all three reconciliation attempts failed/i);
+});

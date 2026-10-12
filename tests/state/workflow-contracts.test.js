@@ -47,3 +47,52 @@ test("start and shutter are manual/reusable workflows with consistent inputs and
     assert.equal(value.concurrency, undefined);
   }
 });
+
+test("reconciliation and 416 workflows preserve bounded retry and single-write contracts", () => {
+  const reconciliation = workflow("state-reconciliation");
+  assert.deepEqual(Object.keys(reconciliation.on), ["workflow_call", "workflow_dispatch"]);
+  assert.deepEqual(reconciliation.permissions, { contents: "read" });
+  const reconcileJob = reconciliation.jobs.reconcile;
+  assert.equal(reconcileJob.environment, "state-writer");
+  const attempts = reconcileJob.steps.filter(step => /Attempt [123] observation/.test(step.name || ""));
+  const writes = reconcileJob.steps.filter(step => /Attempt [123] state write/.test(step.name || ""));
+  assert.equal(attempts.length, 3);
+  assert.equal(writes.length, 3);
+  assert.ok(writes.every(step => step["continue-on-error"] === true));
+  assert.ok(reconcileJob.steps.some(step => step.run?.includes("state-write-alert.sh")));
+
+  const scheduler = workflow("custom-auto-startup-shutdown");
+  assert.deepEqual(Object.keys(scheduler.on), ["workflow_dispatch"]);
+  assert.deepEqual(scheduler.permissions, { contents: "read" });
+  assert.equal(scheduler.concurrency, undefined);
+  assert.ok(!("schedule" in scheduler.on));
+  const plan = scheduler.jobs.plan;
+  for (const output of ["start", "stop", "requestedStacks", "hasWork"]) assert.ok(plan.outputs[output]);
+  for (const [name, workflowPath, output] of [["start", "full-environment-start.yaml", "start"],
+    ["stop", "full-environment-shutter.yaml", "stop"]]) {
+    const child = scheduler.jobs[name];
+    assert.equal(child.uses, `./.github/workflows/${workflowPath}`);
+    assert.equal(child.strategy["fail-fast"], false);
+    assert.equal(child.strategy.matrix.include, `\${{ fromJSON(needs.plan.outputs.${output}) }}`);
+    assert.equal(child.with.stateWriteMode, "orchestrated");
+  }
+  const writer = scheduler.jobs["state-write"];
+  assert.deepEqual(writer.needs, ["plan", "start", "stop"]);
+  assert.equal(writer.environment, "state-writer");
+  const download = writer.steps.find(step => step.uses === "actions/download-artifact@v4");
+  assert.equal(download.with.pattern, "observation-*");
+  assert.equal(download.with["merge-multiple"], false);
+  assert.equal(writer.steps.find(step => step.id === "write").env.EXPECTED_RUN_IDS, "\${{ github.run_id }}");
+  assert.ok(scheduler.jobs["resolve-targets"].steps.some(step => step.run?.includes("reconciliation-resolve-targets.sh")));
+  const matrix = scheduler.jobs.reconcile.strategy;
+  assert.equal(matrix["max-parallel"], 1);
+  assert.equal(matrix["fail-fast"], false);
+  assert.ok(scheduler.jobs.reconcile.uses.endsWith("state-reconciliation.yaml"));
+});
+
+test("reconciliation observations preserve child run and expected action provenance", () => {
+  const steps = workflow("state-reconciliation").jobs.reconcile.steps;
+  const observations = steps.filter(step => /Attempt [123] observation/.test(step.name || ""));
+  assert.equal(observations.length, 3);
+  assert.ok(observations.every(step => step.run.includes("--pipeline") && step.run.includes("inputs.expectedState") && step.run.includes("--requested true")));
+});

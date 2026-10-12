@@ -17,6 +17,7 @@ case "$case_name" in
   stale-base) title="State write base remained stale"; body="The state branch kept moving while the writer retried." ;;
   reconciliation-resolve-failed) title="Reconciliation targets could not be resolved"; body="A target lacked a valid expected state." ;;
   reconciliation-invoke-failed) title="Reconciliation could not be invoked"; body="The reconciliation workflow did not start successfully." ;;
+  reconciliation-failed) title="State reconciliation failed"; body="All three reconciliation attempts failed." ;;
   *) title="State writer alert: $case_name"; body="An unrecognized state-writer outcome needs investigation." ;;
 esac
 details="${details//$'\r'/ }"; details="${details//$'\n'/ }"

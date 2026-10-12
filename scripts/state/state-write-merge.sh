@@ -21,7 +21,7 @@ accepted_file="$scratch/merge-accepted.txt"
 pipelines_file="$scratch/merge-pipelines.txt"
 runs_file="$scratch/merge-runs.txt"
 : > "$accepted_file"; : > "$pipelines_file"; : > "$runs_file"
-find "$observations" -mindepth 2 -maxdepth 2 -type f -name observation.json | LC_ALL=C sort > "$files" || fail "cannot list observations"
+find "$observations" -type f -name observation.json | LC_ALL=C sort > "$files" || fail "cannot list observations"
 while IFS= read -r file; do
   folder="$(basename "$(dirname "$file")")"
   stack="${folder#observation-}"
