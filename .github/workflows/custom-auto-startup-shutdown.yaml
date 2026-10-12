@@ -73,7 +73,7 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.start) }}
     uses: ./.github/workflows/full-environment-start.yaml
     with:
-      stack: ${{ matrix.include.stack }}
+      stack: ${{ matrix.stack }}
       stateWriteMode: orchestrated
       simulate: ${{ inputs.simulate }}
   stop:
@@ -85,7 +85,7 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.stop) }}
     uses: ./.github/workflows/full-environment-shutter.yaml
     with:
-      stack: ${{ matrix.include.stack }}
+      stack: ${{ matrix.stack }}
       stateWriteMode: orchestrated
       simulate: ${{ inputs.simulate }}
   state-write:
@@ -113,6 +113,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm ci --ignore-scripts
+      - name: Prepare observations directory
+        run: mkdir -p observations
       - name: Download child observations
         uses: actions/download-artifact@v4
         continue-on-error: true
@@ -160,17 +162,17 @@ jobs:
           REQUESTED_STATES: ${{ needs.state-write.outputs.requestedStates }}
   reconcile:
     needs: [state-write, resolve-targets]
-    if: always() && needs.state-write.outputs.reconciliationRequired == 'true' && needs.resolve-targets.outputs.alertRequired != 'true'
+    if: always() && needs.resolve-targets.result == 'success' && needs.state-write.outputs.reconciliationRequired == 'true' && needs.resolve-targets.outputs.alertRequired != 'true' && needs.resolve-targets.outputs.matrix != '{"include":[]}'
     strategy:
       max-parallel: 1
       fail-fast: false
-      matrix:
-        include: ${{ fromJSON(needs.resolve-targets.outputs.matrix) }}
+      matrix: ${{ fromJSON(needs.resolve-targets.outputs.matrix) }}
     uses: ./.github/workflows/state-reconciliation.yaml
     with:
-      stack: ${{ matrix.include.stack }}
-      expectedState: ${{ matrix.include.expectedState }}
+      stack: ${{ matrix.stack }}
+      expectedState: ${{ matrix.expectedState }}
       triggeringRunId: ${{ github.run_id }}
+    secrets: inherit
   alert:
     needs: [state-write, resolve-targets]
     if: always() && (needs.state-write.outputs.alertRequired == 'true' || needs.resolve-targets.outputs.alertRequired == 'true')
@@ -182,7 +184,12 @@ jobs:
           persist-credentials: false
       - name: Alert on writer failure
         if: needs.state-write.outputs.alertRequired == 'true'
-        run: bash scripts/state/state-write-alert.sh --case "${{ needs.state-write.outputs.writeOutcome }}"
+        run: bash scripts/state/state-write-alert.sh --case "$WRITE_OUTCOME"
+        env:
+          WRITE_OUTCOME: ${{ needs.state-write.outputs.writeOutcome }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       - name: Alert on target resolution failure
         if: needs.resolve-targets.outputs.alertRequired == 'true'
         run: bash scripts/state/state-write-alert.sh --case reconciliation-resolve-failed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

@@ -48,9 +48,11 @@ jobs:
       - name: Simulate AKS
         if: always()
         shell: bash
+        env:
+          SIMULATE: ${{ inputs.simulate }}
         run: |
           echo '::notice::Simulated AKS shutter'
-          if [[ "${{ inputs.simulate }}" == action-failed ]]; then echo '::error::Simulated AKS action failed'; exit 1; fi
+          if [[ "$SIMULATE" == action-failed ]]; then echo '::error::Simulated AKS action failed'; exit 1; fi
       - name: Simulate IaaS
         if: always()
         run: echo '::notice::Simulated IaaS shutter'
@@ -61,11 +63,15 @@ jobs:
         id: observation
         if: always()
         shell: bash
+        env:
+          STACK: ${{ inputs.stack }}
+          SIMULATE: ${{ inputs.simulate }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           bash scripts/state/observation-create.sh \
-            --stack "${{ inputs.stack }}" --pipeline 404 --expected-state stopped \
-            --simulate "${{ inputs.simulate }}" --output-dir observations \
-            --run-id "${{ github.run_id }}" --requested true
+            --stack "$STACK" --pipeline 404 --expected-state stopped \
+            --simulate "$SIMULATE" --output-dir observations \
+            --run-id "$RUN_ID" --requested true
       - name: Upload observation
         if: always()
         uses: actions/upload-artifact@v4
@@ -98,6 +104,8 @@ jobs:
           node-version: '22'
       - name: Install dependencies
         run: npm ci --ignore-scripts
+      - name: Prepare observations directory
+        run: mkdir -p observations
       - name: Download observation
         uses: actions/download-artifact@v4
         continue-on-error: true
@@ -130,6 +138,7 @@ jobs:
       stack: ${{ inputs.stack }}
       expectedState: stopped
       triggeringRunId: ${{ github.run_id }}
+    secrets: inherit
   alert:
     needs: state-write
     if: always() && needs.state-write.outputs.alertRequired == 'true'
@@ -140,4 +149,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Alert on state writer failure
-        run: bash scripts/state/state-write-alert.sh --case "${{ needs.state-write.outputs.writeOutcome }}"
+        run: bash scripts/state/state-write-alert.sh --case "$WRITE_OUTCOME"
+        env:
+          WRITE_OUTCOME: ${{ needs.state-write.outputs.writeOutcome }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

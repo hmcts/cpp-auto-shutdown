@@ -153,6 +153,8 @@ The composite action validates and masks the decoded key; the token is passed to
 | `partial`, `rejected`, `stale-base` | Reconcile; stale-base targets all requested stacks. |
 | `git-failed`, `script-failure` | Alert, without reconciliation. |
 
+Alerts are always raised as a `::error::` annotation and in the job summary. They are also posted to Slack when an optional `SLACK_WEBHOOK_URL` repository secret exists (reconciliation jobs receive it via `secrets: inherit`). Workflow inputs reach scripts only through `env:`, never by interpolating `${{ }}` into `run:`.
+
 Schemas currently support only `dev` and `ste`; `sit` and `nft` are not enabled. Run `npm run test:state`, or one file with `node --test tests/state/state-write-push.test.js`. Git tests use isolated temporary bare repos and must never write checked-in `config/**` or `state/**`. The focused CI suite uses no protected environment or live token.
 
 ### Structure

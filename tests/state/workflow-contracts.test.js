@@ -75,6 +75,7 @@ test("reconciliation and 416 workflows preserve bounded retry and single-write c
     assert.equal(child.strategy["fail-fast"], false);
     assert.equal(child.strategy.matrix.include, `\${{ fromJSON(needs.plan.outputs.${output}) }}`);
     assert.equal(child.with.stateWriteMode, "orchestrated");
+    assert.equal(child.with.stack, "${{ matrix.stack }}");
   }
   const writer = scheduler.jobs["state-write"];
   assert.deepEqual(writer.needs, ["plan", "start", "stop"]);
@@ -88,13 +89,41 @@ test("reconciliation and 416 workflows preserve bounded retry and single-write c
   assert.equal(matrix["max-parallel"], 1);
   assert.equal(matrix["fail-fast"], false);
   assert.ok(scheduler.jobs.reconcile.uses.endsWith("state-reconciliation.yaml"));
+  assert.equal(matrix.matrix, "${{ fromJSON(needs.resolve-targets.outputs.matrix) }}");
+  assert.match(scheduler.jobs.reconcile.if, /needs\.resolve-targets\.result == 'success'/);
+  assert.equal(scheduler.jobs.reconcile.with.stack, "${{ matrix.stack }}");
+  assert.equal(scheduler.jobs.reconcile.with.expectedState, "${{ matrix.expectedState }}");
+});
+
+const stateWorkflows = ["full-environment-start", "full-environment-shutter", "state-reconciliation",
+  "custom-auto-startup-shutdown"];
+const allSteps = value => Object.values(value.jobs).flatMap(job => job.steps ?? []);
+
+test("run scripts never interpolate expressions; values arrive through env", () => {
+  for (const name of stateWorkflows) {
+    for (const step of allSteps(workflow(name)).filter(step => step.run)) {
+      assert.ok(!step.run.includes("${{"), `${name}: '${step.name}' interpolates an expression into run`);
+    }
+  }
+});
+
+test("alert steps receive the optional Slack webhook and reusable reconcilers inherit secrets", () => {
+  for (const name of stateWorkflows) {
+    const value = workflow(name);
+    for (const step of allSteps(value).filter(step => step.run?.includes("state-write-alert.sh"))) {
+      assert.equal(step.env?.SLACK_WEBHOOK_URL, "${{ secrets.SLACK_WEBHOOK_URL }}", `${name}: ${step.name}`);
+    }
+    for (const job of Object.values(value.jobs).filter(job => job.uses?.endsWith("state-reconciliation.yaml"))) {
+      assert.equal(job.secrets, "inherit", `${name}: reconcile job must inherit secrets`);
+    }
+  }
 });
 
 test("reconciliation observations preserve child run and expected action provenance", () => {
   const steps = workflow("state-reconciliation").jobs.reconcile.steps;
   const observations = steps.filter(step => /Attempt [123] observation/.test(step.name || ""));
   assert.equal(observations.length, 3);
-  assert.ok(observations.every(step => step.run.includes("--pipeline") && step.run.includes("inputs.expectedState") && step.run.includes("--requested true")));
+  assert.ok(observations.every(step => step.run.includes("--pipeline") && step.run.includes("$EXPECTED_STATE") && step.run.includes("--requested true")));
 });
 test("state writer CI runs only offline checks on the required path filters", () => {
   const ci = workflow("state-writer-tests");

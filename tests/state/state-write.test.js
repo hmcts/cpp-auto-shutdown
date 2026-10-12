@@ -83,9 +83,20 @@ test("wrapper alerts and stops after a rejected remote push", t => {
   assert.equal(value.reconciliationRequired, "false");
 });
 
-test("wrapper emits script-failure outputs when a child cannot validate", t => {
+test("wrapper treats a missing observations directory as empty and rejects the request", t => {
   const fix = fixture(t); const paths = setup(fix, "steccm43:stopped");
   const result = run(fix, paths, { OBSERVATIONS_DIR: join(fix.directory, "missing-observations") });
+  assert.equal(result.status, 0, result.stderr);
+  const value = outputs(paths);
+  assert.equal(value.writeOutcome, "rejected");
+  assert.equal(value.reconciliationRequired, "true");
+  assert.deepEqual(JSON.parse(value.rejectedStacks), ["STECCM43"]);
+});
+
+test("wrapper emits script-failure outputs when a child cannot validate", t => {
+  const fix = fixture(t); const paths = setup(fix, "steccm43:stopped");
+  const result = run(fix, paths, { STATE_REPO_URL: join(fix.directory, "no-such-remote.git"),
+    STATE_REPO_DIR: join(fix.directory, "fresh-writer") });
   assert.equal(result.status, 1);
   const value = outputs(paths);
   assert.equal(value.writeOutcome, "script-failure");

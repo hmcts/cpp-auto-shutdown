@@ -27,7 +27,9 @@ emit_outputs() {
 }
 trap emit_outputs EXIT
 for tool in jq node git; do command -v "$tool" >/dev/null 2>&1 || fatal "Required tool is missing: $tool"; done
-if [[ -z "${OBSERVATIONS_DIR:-}" || ! -d "$OBSERVATIONS_DIR" || -z "${RESULTS_DIR:-}" ]]; then fatal "OBSERVATIONS_DIR and RESULTS_DIR must be valid"; fi
+if [[ -z "${OBSERVATIONS_DIR:-}" || -z "${RESULTS_DIR:-}" ]]; then fatal "OBSERVATIONS_DIR and RESULTS_DIR must be set"; fi
+# No artifact downloaded (every child unverifiable) is an empty directory, not a fault.
+mkdir -p "$OBSERVATIONS_DIR" || fatal "Cannot create observations directory"
 mkdir -p "$RESULTS_DIR" || fatal "Cannot create results directory"
 normalized="$(node --input-type=module - "${REQUESTED_STACKS:-}" <<'NODE'
 const raw = process.argv[2] ?? "";
