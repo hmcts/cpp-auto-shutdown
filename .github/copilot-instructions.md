@@ -64,5 +64,24 @@ See the README for prerequisites and the distinction from ADO authentication pro
   `dom.js`. Use `safeUrl()` for `href` values; it permits only HTTP(S) URLs.
 - Keep browser data requests on the public raw-file URLs in `data.js`; do not switch to
   `api.github.com`, whose unauthenticated rate limit is shared by dashboard viewers.
+- Data-validation tests treat the schemas as the contract. Validate the checked-in
+  `config/*.yaml` and `state/environments/*.json` as-is, but build contract-test inputs
+  inline (`stacksDocument()`, `exceptionsDocument()`, `stateDocument()` in
+  `tests/data-validation/schema.test.js`), because workflows rewrite those files at runtime.
+  Tests that write invalid files must use a `mkdtemp()` copy, never the real directories.
+- Empty data is valid: `stacks: {}` in environment state and `exceptions: []` in
+  `config/exceptions.yaml`. Write the empty list explicitly; a bare `exceptions:` parses
+  as YAML `null` and fails the schema.
 - Follow `security.md` for vulnerability reports; do not report vulnerabilities in
   public issues or pull requests.
+- Run state-writer tests with `npm run test:state`; run one file with
+  `node --test tests/state/<file>.test.js`. `npm test` includes state tests through
+  npm's `posttest` lifecycle.
+- State-writer scripts are Bash and must remain compatible with Bash 3.2 on macOS
+  and ubuntu-latest. Validate new scripts with `bash -n`; parse workflow/action YAML
+  using the installed `yaml` package.
+- State tests must be offline and isolated with `mkdtemp()`. Use local bare Git
+  repositories and dummy credentials; never use network remotes or real tokens.
+- Tests must never write checked-in `config/**` or `state/**`; use temporary copies
+  and remove their temp directories. Workflow contract tests belong in
+  `tests/state/workflow-contracts.test.js`.

@@ -1,0 +1,195 @@
+name: Custom auto startup and shutdown
+# Intended schedule (not enabled): 06:00, 19:00 and 21:00 Europe/London.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Re-assert the desired state for every selected stack
+        type: boolean
+        required: false
+        default: false
+      environments:
+        description: Comma-separated environments
+        type: string
+        required: false
+        default: dev,ste
+      stacks:
+        description: Optional comma-separated stack IDs
+        type: string
+        required: false
+        default: ''
+      simulate:
+        description: Simulation mode passed to child workflows
+        type: string
+        required: false
+        default: success
+      now:
+        description: Optional ISO timestamp override
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      start: ${{ steps.plan.outputs.start }}
+      stop: ${{ steps.plan.outputs.stop }}
+      requestedStacks: ${{ steps.plan.outputs.requestedStacks }}
+      hasWork: ${{ steps.plan.outputs.hasWork }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Plan schedule transitions
+        id: plan
+        shell: bash
+        env:
+          FORCE: ${{ inputs.force }}
+          ENVIRONMENTS: ${{ inputs.environments }}
+          STACKS: ${{ inputs.stacks }}
+          NOW: ${{ inputs.now }}
+        run: |
+          set -euo pipefail
+          args=(--environments "$ENVIRONMENTS")
+          [[ -z "$STACKS" ]] || args+=(--stacks "$STACKS")
+          [[ "$FORCE" != true ]] || args+=(--force)
+          [[ -z "$NOW" ]] || args+=(--now "$NOW")
+          node scripts/state/schedule-plan.mjs "${args[@]}"
+  start:
+    needs: plan
+    if: needs.plan.outputs.start != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.start) }}
+    uses: ./.github/workflows/full-environment-start.yaml
+    with:
+      stack: ${{ matrix.stack }}
+      stateWriteMode: orchestrated
+      simulate: ${{ inputs.simulate }}
+  stop:
+    needs: plan
+    if: needs.plan.outputs.stop != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.stop) }}
+    uses: ./.github/workflows/full-environment-shutter.yaml
+    with:
+      stack: ${{ matrix.stack }}
+      stateWriteMode: orchestrated
+      simulate: ${{ inputs.simulate }}
+  state-write:
+    needs: [plan, start, stop]
+    if: always() && needs.plan.outputs.hasWork == 'true'
+    runs-on: ubuntu-latest
+    environment: state-writer
+    outputs:
+      writeOutcome: ${{ steps.write.outputs.writeOutcome }}
+      alertRequired: ${{ steps.write.outputs.alertRequired }}
+      reconciliationRequired: ${{ steps.write.outputs.reconciliationRequired }}
+      requestedStacks: ${{ steps.write.outputs.requestedStacks }}
+      requestedStates: ${{ steps.write.outputs.requestedStates }}
+      acceptedStacks: ${{ steps.write.outputs.acceptedStacks }}
+      rejectedStacks: ${{ steps.write.outputs.rejectedStacks }}
+      baseSha: ${{ steps.write.outputs.baseSha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Prepare observations directory
+        run: mkdir -p observations
+      - name: Download child observations
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: observation-*
+          path: observations
+          merge-multiple: false
+      - name: Create scoped state writer token
+        id: app-token
+        uses: ./.github/actions/state-write-token
+        with:
+          app-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_APP_ID }}
+          installation-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_INSTALLATION_ID }}
+          private-key-base64: ${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}
+      - name: Write observed state once
+        id: write
+        run: bash scripts/state/state-write.sh
+        env:
+          OBSERVATIONS_DIR: observations
+          RESULTS_DIR: results
+          MAX_RETRIES: 3
+          EXPECTED_RUN_IDS: ${{ github.run_id }}
+          REQUESTED_STACKS: ${{ needs.plan.outputs.requestedStacks }}
+          STATE_BRANCH: main
+          STATE_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+  resolve-targets:
+    needs: state-write
+    if: always() && needs.state-write.outputs.reconciliationRequired == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.targets.outputs.matrix }}
+      alertRequired: ${{ steps.targets.outputs.alertRequired }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Resolve reconciliation targets
+        id: targets
+        run: bash scripts/state/reconciliation-resolve-targets.sh
+        env:
+          WRITE_OUTCOME: ${{ needs.state-write.outputs.writeOutcome }}
+          REQUESTED_STACKS: ${{ needs.state-write.outputs.requestedStacks }}
+          REJECTED_STACKS: ${{ needs.state-write.outputs.rejectedStacks }}
+          REQUESTED_STATES: ${{ needs.state-write.outputs.requestedStates }}
+  reconcile:
+    needs: [state-write, resolve-targets]
+    if: always() && needs.resolve-targets.result == 'success' && needs.state-write.outputs.reconciliationRequired == 'true' && needs.resolve-targets.outputs.alertRequired != 'true' && needs.resolve-targets.outputs.matrix != '{"include":[]}'
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.resolve-targets.outputs.matrix) }}
+    uses: ./.github/workflows/state-reconciliation.yaml
+    with:
+      stack: ${{ matrix.stack }}
+      expectedState: ${{ matrix.expectedState }}
+      triggeringRunId: ${{ github.run_id }}
+    secrets: inherit
+  alert:
+    needs: [state-write, resolve-targets]
+    if: always() && (needs.state-write.outputs.alertRequired == 'true' || needs.resolve-targets.outputs.alertRequired == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Alert on writer failure
+        if: needs.state-write.outputs.alertRequired == 'true'
+        run: bash scripts/state/state-write-alert.sh --case "$WRITE_OUTCOME"
+        env:
+          WRITE_OUTCOME: ${{ needs.state-write.outputs.writeOutcome }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Alert on target resolution failure
+        if: needs.resolve-targets.outputs.alertRequired == 'true'
+        run: bash scripts/state/state-write-alert.sh --case reconciliation-resolve-failed
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

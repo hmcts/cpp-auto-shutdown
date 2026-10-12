@@ -1,0 +1,155 @@
+name: Full environment start
+on:
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: Stack ID
+        type: string
+        required: true
+      stateWriteMode:
+        description: State write ownership mode
+        type: string
+        required: false
+        default: direct
+      simulate:
+        description: Simulated action and observation result
+        type: string
+        required: false
+        default: success
+  workflow_call:
+    inputs:
+      stack:
+        type: string
+        required: true
+      stateWriteMode:
+        type: string
+        required: false
+        default: direct
+      simulate:
+        type: string
+        required: false
+        default: success
+permissions:
+  contents: read
+jobs:
+  environment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Simulate PAAS
+        if: always()
+        shell: bash
+        env:
+          SIMULATE: ${{ inputs.simulate }}
+        run: |
+          echo '::notice::Simulated PAAS start'
+          if [[ "$SIMULATE" == action-failed ]]; then echo '::error::Simulated PAAS action failed'; exit 1; fi
+      - name: Simulate IaaS
+        if: always()
+        run: echo '::notice::Simulated IaaS start'
+      - name: Simulate AKS
+        if: always()
+        run: echo '::notice::Simulated AKS start'
+      - name: Create observation
+        id: observation
+        if: always()
+        shell: bash
+        env:
+          STACK: ${{ inputs.stack }}
+          SIMULATE: ${{ inputs.simulate }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          bash scripts/state/observation-create.sh \
+            --stack "$STACK" --pipeline 402 --expected-state started \
+            --simulate "$SIMULATE" --output-dir observations \
+            --run-id "$RUN_ID" --requested true
+      - name: Upload observation
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: observation-${{ inputs.stack }}
+          path: observations/
+          if-no-files-found: warn
+  state-write:
+    needs: environment
+    if: always() && inputs.stateWriteMode == 'direct'
+    runs-on: ubuntu-latest
+    environment: state-writer
+    outputs:
+      writeOutcome: ${{ steps.write.outputs.writeOutcome }}
+      alertRequired: ${{ steps.write.outputs.alertRequired }}
+      reconciliationRequired: ${{ steps.write.outputs.reconciliationRequired }}
+      requestedStacks: ${{ steps.write.outputs.requestedStacks }}
+      requestedStates: ${{ steps.write.outputs.requestedStates }}
+      acceptedStacks: ${{ steps.write.outputs.acceptedStacks }}
+      rejectedStacks: ${{ steps.write.outputs.rejectedStacks }}
+      baseSha: ${{ steps.write.outputs.baseSha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Prepare observations directory
+        run: mkdir -p observations
+      - name: Download observation
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: observation-${{ inputs.stack }}
+          path: observations
+      - name: Create scoped state writer token
+        id: app-token
+        uses: ./.github/actions/state-write-token
+        with:
+          app-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_APP_ID }}
+          installation-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_INSTALLATION_ID }}
+          private-key-base64: ${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}
+      - name: Write observed state
+        id: write
+        run: bash scripts/state/state-write.sh
+        env:
+          OBSERVATIONS_DIR: observations
+          RESULTS_DIR: results
+          MAX_RETRIES: 3
+          EXPECTED_RUN_IDS: ${{ github.run_id }}
+          REQUESTED_STACKS: ${{ inputs.stack }}:started
+          STATE_BRANCH: main
+          STATE_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+  reconcile:
+    needs: state-write
+    if: always() && needs.state-write.outputs.reconciliationRequired == 'true'
+    uses: ./.github/workflows/state-reconciliation.yaml
+    with:
+      stack: ${{ inputs.stack }}
+      expectedState: started
+      triggeringRunId: ${{ github.run_id }}
+    secrets: inherit
+  alert:
+    needs: state-write
+    if: always() && needs.state-write.outputs.alertRequired == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Alert on state writer failure
+        run: bash scripts/state/state-write-alert.sh --case "$WRITE_OUTCOME"
+        env:
+          WRITE_OUTCOME: ${{ needs.state-write.outputs.writeOutcome }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

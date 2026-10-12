@@ -1,0 +1,131 @@
+name: State reconciliation
+on:
+  workflow_call:
+    inputs:
+      stack:
+        type: string
+        required: true
+      expectedState:
+        type: string
+        required: true
+      triggeringRunId:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      stack:
+        description: Stack to re-observe
+        type: string
+        required: true
+      expectedState:
+        description: State to re-assert
+        type: string
+        required: true
+      triggeringRunId:
+        description: Workflow run that requested reconciliation
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    environment: state-writer
+    env:
+      STACK: ${{ inputs.stack }}
+      EXPECTED_STATE: ${{ inputs.expectedState }}
+      TRIGGERING_RUN_ID: ${{ inputs.triggeringRunId }}
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$STACK" =~ ^[A-Za-z0-9_-]+$ ]] || { echo '::error::stack must be alphanumeric'; exit 1; }
+          [[ "$EXPECTED_STATE" == started || "$EXPECTED_STATE" == stopped ]] || { echo '::error::expectedState must be started or stopped'; exit 1; }
+          [[ "$TRIGGERING_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo '::error::triggeringRunId must be a run ID'; exit 1; }
+          if [[ "$EXPECTED_STATE" == started ]]; then echo PIPELINE=402; else echo PIPELINE=404; fi >> "$GITHUB_ENV"
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Create scoped state writer token
+        id: app-token
+        uses: ./.github/actions/state-write-token
+        with:
+          app-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_APP_ID }}
+          installation-id: ${{ secrets.CPP_GITHUB_MANAGEMENT_INSTALLATION_ID }}
+          private-key-base64: ${{ secrets.CPP_GITHUB_MANAGEMENT_PRIVATE_KEY }}
+      - name: Clear observations for attempt 1
+        if: always()
+        run: rm -rf observations && mkdir -p observations
+      - name: Attempt 1 observation
+        id: attempt1-observation
+        if: always()
+        run: bash scripts/state/observation-create.sh --stack "$STACK" --pipeline "$PIPELINE" --expected-state "$EXPECTED_STATE" --simulate success --output-dir observations --run-id "$TRIGGERING_RUN_ID" --requested true
+      - name: Attempt 1 state write
+        id: attempt1-write
+        if: always()
+        continue-on-error: true
+        run: bash scripts/state/state-write.sh
+        env:
+          OBSERVATIONS_DIR: observations
+          RESULTS_DIR: results/attempt1
+          MAX_RETRIES: 1
+          EXPECTED_RUN_IDS: ${{ inputs.triggeringRunId }}
+          REQUESTED_STACKS: ${{ inputs.stack }}:${{ inputs.expectedState }}
+          STATE_BRANCH: main
+          STATE_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Clear observations for attempt 2
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded'
+        run: rm -rf observations && mkdir -p observations
+      - name: Attempt 2 observation
+        id: attempt2-observation
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded'
+        run: bash scripts/state/observation-create.sh --stack "$STACK" --pipeline "$PIPELINE" --expected-state "$EXPECTED_STATE" --simulate success --output-dir observations --run-id "$TRIGGERING_RUN_ID" --requested true
+      - name: Attempt 2 state write
+        id: attempt2-write
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded'
+        continue-on-error: true
+        run: bash scripts/state/state-write.sh
+        env:
+          OBSERVATIONS_DIR: observations
+          RESULTS_DIR: results/attempt2
+          MAX_RETRIES: 1
+          EXPECTED_RUN_IDS: ${{ inputs.triggeringRunId }}
+          REQUESTED_STACKS: ${{ inputs.stack }}:${{ inputs.expectedState }}
+          STATE_BRANCH: main
+          STATE_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Clear observations for attempt 3
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded' && steps.attempt2-write.outputs.writeOutcome != 'succeeded'
+        run: rm -rf observations && mkdir -p observations
+      - name: Attempt 3 observation
+        id: attempt3-observation
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded' && steps.attempt2-write.outputs.writeOutcome != 'succeeded'
+        run: bash scripts/state/observation-create.sh --stack "$STACK" --pipeline "$PIPELINE" --expected-state "$EXPECTED_STATE" --simulate success --output-dir observations --run-id "$TRIGGERING_RUN_ID" --requested true
+      - name: Attempt 3 state write
+        id: attempt3-write
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded' && steps.attempt2-write.outputs.writeOutcome != 'succeeded'
+        continue-on-error: true
+        run: bash scripts/state/state-write.sh
+        env:
+          OBSERVATIONS_DIR: observations
+          RESULTS_DIR: results/attempt3
+          MAX_RETRIES: 1
+          EXPECTED_RUN_IDS: ${{ inputs.triggeringRunId }}
+          REQUESTED_STACKS: ${{ inputs.stack }}:${{ inputs.expectedState }}
+          STATE_BRANCH: main
+          STATE_WRITE_TOKEN: ${{ steps.app-token.outputs.token }}
+      - name: Alert after reconciliation attempts failed
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded' && steps.attempt2-write.outputs.writeOutcome != 'succeeded' && steps.attempt3-write.outputs.writeOutcome != 'succeeded'
+        run: bash scripts/state/state-write-alert.sh --case reconciliation-failed --details "All three attempts failed for $STACK"
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - name: Fail exhausted reconciliation
+        if: always() && steps.attempt1-write.outputs.writeOutcome != 'succeeded' && steps.attempt2-write.outputs.writeOutcome != 'succeeded' && steps.attempt3-write.outputs.writeOutcome != 'succeeded'
+        run: exit 1

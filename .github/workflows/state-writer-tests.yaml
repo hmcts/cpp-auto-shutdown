@@ -1,0 +1,51 @@
+name: State writer tests
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/state/**'
+      - 'tests/state/**'
+      - '.github/workflows/full-environment-start.yaml'
+      - '.github/workflows/full-environment-shutter.yaml'
+      - '.github/workflows/state-reconciliation.yaml'
+      - '.github/workflows/custom-auto-startup-shutdown.yaml'
+      - '.github/workflows/state-writer-tests.yaml'
+      - '.github/actions/**'
+      - 'schemas/**'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    paths:
+      - 'scripts/state/**'
+      - 'tests/state/**'
+      - '.github/workflows/full-environment-start.yaml'
+      - '.github/workflows/full-environment-shutter.yaml'
+      - '.github/workflows/state-reconciliation.yaml'
+      - '.github/workflows/custom-auto-startup-shutdown.yaml'
+      - '.github/workflows/state-writer-tests.yaml'
+      - '.github/actions/**'
+      - 'schemas/**'
+      - 'package.json'
+      - 'package-lock.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  state-writer-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+      - name: Check state script syntax
+        run: bash -n scripts/state/*.sh
+      - name: Run offline state writer tests
+        run: npm run test:state

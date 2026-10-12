@@ -1,0 +1,49 @@
+name: State writer GitHub App token
+description: Validate the App configuration and mint a repository-scoped contents token.
+inputs:
+  app-id:
+    description: GitHub App ID
+    required: true
+  installation-id:
+    description: Expected GitHub App installation ID
+    required: true
+  private-key-base64:
+    description: Base64-encoded RSA private key PEM
+    required: true
+outputs:
+  token:
+    description: Repository-scoped installation token
+    value: ${{ steps.app-token.outputs.token }}
+runs:
+  using: composite
+  steps:
+    - name: Check App configuration
+      shell: bash
+      env:
+        APP_ID: ${{ inputs.app-id }}
+        INSTALLATION_ID: ${{ inputs.installation-id }}
+        PRIVATE_KEY_BASE64: ${{ inputs.private-key-base64 }}
+      run: |
+        set +x
+        set -euo pipefail
+        [[ "$APP_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'App ID is missing or invalid' >&2; exit 1; }
+        [[ "$INSTALLATION_ID" =~ ^[1-9][0-9]*$ ]] || { echo 'Installation ID is missing or invalid' >&2; exit 1; }
+        [[ -n "$PRIVATE_KEY_BASE64" ]] || { echo 'App private key is missing' >&2; exit 1; }
+    - name: Decode and validate App private key
+      id: decode-key
+      shell: bash
+      env:
+        PRIVATE_KEY_BASE64: ${{ inputs.private-key-base64 }}
+      run: |
+        set +x
+        set -euo pipefail
+        node scripts/state/app-key-decode.mjs
+    - name: Create repository-scoped installation token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ steps.decode-key.outputs.private-key }}
+        owner: hmcts
+        repositories: cpp-auto-shutdown
+        permission-contents: write
