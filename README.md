@@ -125,6 +125,36 @@ not establish authorization to write protected configuration or observed-state p
 This workflow proves GitHub App write access, not ADO credential retrieval or
 execution of the ADO token template.
 
+## State writer (GitHub Actions)
+
+The state writer demonstrates an offline-designed observe -> write -> reconcile loop. Start/stop legs and observations are simulated; no Azure access occurs.
+
+- `full-environment-start.yaml` (402) and `full-environment-shutter.yaml` (404) are manual/reusable simulations that observe even after an action failure.
+- `custom-auto-startup-shutdown.yaml` (416) is dispatch-only: it plans from config, exceptions, bank holidays and observed state, then performs one write.
+- `state-reconciliation.yaml` re-observes one stack with up to three attempts.
+
+The 402/404 `stateWriteMode` is `direct` by default; `none` skips writing and `orchestrated` leaves the write to 416. Simulation modes are `success`, `action-failed`, `partial`, and `unverifiable:aks|iaas|paas`. No live start/stop action is performed.
+
+The intended schedule is 06:00, 19:00 and 21:00 Europe/London; it is documented but **no cron trigger is enabled**. State pushes are normal, never forced, and write jobs have no concurrency group; stale-base retry handles contention.
+
+Before any live write, an administrator must create the GitHub environment `state-writer`, restrict deployments to `main`, and verify that the existing `cpp-github-management` App can write state paths with repository-scoped `contents: write`. Add these environment secrets:
+
+| Secret | Value |
+| --- | --- |
+| `CPP_GITHUB_MANAGEMENT_APP_ID` | Verified numeric App ID |
+| `CPP_GITHUB_MANAGEMENT_INSTALLATION_ID` | Verified numeric installation ID |
+| `CPP_GITHUB_MANAGEMENT_PRIVATE_KEY` | Approved base64-encoded RSA PEM private key |
+
+The composite action validates and masks the decoded key; the token is passed to Git in a temporary HTTP extraheader, never in a URL or log. The existing manual App probe is unchanged and proves only its root-marker write. Offline test success does not prove live state-path write permission.
+
+| Outcome | Handling |
+| --- | --- |
+| `succeeded` | State write complete. |
+| `partial`, `rejected`, `stale-base` | Reconcile; stale-base targets all requested stacks. |
+| `git-failed`, `script-failure` | Alert, without reconciliation. |
+
+Schemas currently support only `dev` and `ste`; `sit` and `nft` are not enabled. Run `npm run test:state`, or one file with `node --test tests/state/state-write-push.test.js`. Git tests use isolated temporary bare repos and must never write checked-in `config/**` or `state/**`. The focused CI suite uses no protected environment or live token.
+
 ### Structure
 
 ```

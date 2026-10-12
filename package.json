@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:dashboard && npm run test:data && npm run test:auth && npm run test:state",
+    "test": "npm run test:dashboard && npm run test:data && npm run test:auth",
+    "posttest": "npm run test:state",
     "test:dashboard": "node --test \"tests/dashboard/**/*.test.js\"",
     "test:data": "node --test \"tests/data-validation/**/*.test.js\"",
     "test:auth": "node --test \"tests/authentication/**/*.test.js\"",

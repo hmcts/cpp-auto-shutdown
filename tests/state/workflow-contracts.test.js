@@ -96,3 +96,27 @@ test("reconciliation observations preserve child run and expected action provena
   assert.equal(observations.length, 3);
   assert.ok(observations.every(step => step.run.includes("--pipeline") && step.run.includes("inputs.expectedState") && step.run.includes("--requested true")));
 });
+test("state writer CI runs only offline checks on the required path filters", () => {
+  const ci = workflow("state-writer-tests");
+  assert.deepEqual(Object.keys(ci.on), ["push", "pull_request", "workflow_dispatch"]);
+  assert.deepEqual(ci.on.push.branches, ["main"]);
+  assert.deepEqual(ci.permissions, { contents: "read" });
+  const paths = ["scripts/state/**", "tests/state/**", ".github/workflows/full-environment-start.yaml",
+    ".github/workflows/full-environment-shutter.yaml", ".github/workflows/state-reconciliation.yaml",
+    ".github/workflows/custom-auto-startup-shutdown.yaml", ".github/workflows/state-writer-tests.yaml",
+    ".github/actions/**", "schemas/**", "package.json", "package-lock.json"];
+  assert.deepEqual(ci.on.push.paths, paths);
+  assert.deepEqual(ci.on.pull_request.paths, paths);
+  assert.deepEqual(Object.keys(ci.jobs), ["state-writer-tests"]);
+  const job = ci.jobs["state-writer-tests"];
+  assert.equal(job.environment, undefined);
+  assert.equal(job.steps[0].with["persist-credentials"], false);
+  const runs = job.steps.map(step => step.run).filter(Boolean);
+  assert.ok(runs.includes("npm ci --ignore-scripts"));
+  assert.ok(runs.includes("bash -n scripts/state/*.sh"));
+  assert.ok(runs.includes("npm run test:state"));
+  assert.ok(job.steps.every(step => !step.uses?.includes("create-github-app-token")));
+  const { scripts } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.equal(scripts["test:state"], 'node --test "tests/state/**/*.test.js"');
+  assert.equal(scripts.posttest, "npm run test:state");
+});
